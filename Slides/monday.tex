@@ -1,0 +1,1501 @@
+% Ensure included PDFs (banners) with newer versions embed without warnings
+\pdfminorversion=7
+\documentclass[aspectratio=169]{beamer}
+
+\makeatletter
+% Make LaTeX find theme .sty files in Template
+\def\input@path{{Template/}}
+\makeatother
+\usepackage{graphicx}
+% Make graphics (including banner PDFs) resolvable without TEXINPUTS
+\graphicspath{{Template/}{Template/banners/}{../Common_Images/}}
+
+%================================================================%
+% Theme and Package Setup
+%================================================================%
+\usetheme{ucl}
+\setbeamercolor{banner}{bg=darkpurple}
+
+% Navigation and Footer
+\setbeamertemplate{navigation symbols}{\vspace{-2ex}}
+\setbeamertemplate{footline}[author title date]
+\setbeamertemplate{slide counter}[framenumber/totalframenumber]
+
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usetikzlibrary{calc, positioning, arrows.meta, shapes.geometric, trees, backgrounds, shapes.misc, graphs, quotes, shadows, fit, decorations.pathreplacing} 
+\usefonttheme{professionalfonts}
+\usepackage{eulervm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[square,authoryear]{natbib}
+
+% Define custom colours
+\makeatletter
+\@ifundefined{color@stone}{%
+    \definecolor{stone}{gray}{0.95}%
+}{}
+\makeatother
+\definecolor{darkgreen}{rgb}{0.0, 0.5, 0.0}
+\definecolor{uclblue}{cmyk}{1,0.24,0,0.64}
+
+\setbeamercovered{transparent}
+
+% Define theoremblock
+\makeatletter
+\newenvironment<>{theoremblock}[1]{%
+    \begin{block}#2{#1}%
+}{\end{block}}
+\makeatother
+
+% Section divider slides
+\AtBeginSection[]{
+  \begin{frame}
+    \frametitle{\textbf{\Large\insertsectionhead}}
+    \begin{center}
+        \huge\textbf{\insertsectionhead}
+    \end{center}
+  \end{frame}
+}
+
+% Operator definitions
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{Foundations of Deep Learning}
+\subtitle{From Perceptrons to Continuous Dynamics and Implicit Models}
+\author[Martin Benning (University College London)]{Martin Benning}
+\date[CCMI]{CCMI -- Deep Learning in Theory and Practice \\[1cm] Monday, 18 May 2026}
+\institute[]{University College London}
+
+\begin{document}
+
+% --- Title Frame ---
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% --- Overview Frame ---
+\begin{frame}{Lecture Overview}
+  \begin{block}{Objectives}
+    \begin{itemize}
+        \item Understand foundational Neural Network Architectures (Perceptrons to MLPs).
+        \item Explore Convolutional Networks and advanced structures (ResNets, UNets).
+        \item Master training dynamics, loss functions, and practical optimisation.
+        \item Derive Backpropagation via the Chain Rule.
+        \item Analyse the pitfalls of naive end-to-end learning for inverse problems.
+        \item Generalise Backpropagation to implicit layers, fixed-point problems, and continuous limits.
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Lecture Overview}
+  \tableofcontents
+\end{frame}
+
+%================================================================%
+\section{The Deep Learning Revolution \& Motivation}
+%================================================================%
+
+\begin{frame}{The Rise of Deep Learning}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Deep Learning is everywhere:}
+        \begin{itemize}
+            \item Image Classification (ImageNet).
+            \item Speech Recognition (Siri, Alexa).
+            \item Natural Language Processing (Transformers, GPT).
+            \item Strategic Games (AlphaGo).
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \centering
+        \begin{tikzpicture}[scale=0.6]
+            \begin{axis}[
+                title={ImageNet Top-5 Error Rate},
+                xlabel={Year},
+                ylabel={Error Rate (\%)},
+                xmin=2010, xmax=2017,
+                ymin=0, ymax=30,
+                xtick={2010, 2011, 2012, 2013, 2014, 2015, 2016},
+                xticklabels={2010, 2011, 2012, 2013, 2014, 2015, 2016},
+                ymajorgrids=true,
+                grid style=dashed,
+            ]
+            \addplot[
+                color=red,
+                mark=square,
+                thick
+                ]
+                coordinates {
+                (2010,28.2)(2011,25.8)(2012,16.4)(2013,11.7)(2014,6.7)(2015,3.6)(2016,3.0)
+                };
+            \node at (axis cs:2012,18) [anchor=south west] {AlexNet};
+            \node at (axis cs:2015,5) [anchor=south west] {ResNet};
+            \draw[dashed, blue] (axis cs:2010,5.1) -- (axis cs:2017,5.1) node[midway, below] {Human Performance};
+            \end{axis}
+        \end{tikzpicture}
+    \end{columns}
+\end{frame}
+
+%================================================================%
+\section{Deep Learning Primitives: Architectures \& Activations}
+%================================================================%
+
+\begin{frame}{The Artificial Neuron}
+    The fundamental building block of deep learning is the \textbf{Artificial Neuron} (with its special case the \textbf{Perceptron} \citep{rosenblatt1957,rosenblatt1958,rosenblatt1962}).\vspace{0.1cm}
+    
+    \begin{columns}
+        \column{0.4\textwidth}
+        Mathematical formulation:\vspace{-0.1cm}
+        $$ y = \sigma\left( \sum_{i=1}^n w_i x_i + b \right) $$
+        \begin{itemize}
+            \item $x$: Inputs
+            \item $w$: Weights (Synaptic strength)
+            \item $b$: Bias (Threshold)
+            \item $\sigma$: Activation Function (Firing rate)
+        \end{itemize}
+        
+        \column{0.6\textwidth}
+        \centering
+        \begin{tikzpicture}[
+            init/.style={
+              circle,
+              draw=black,
+              fill=stone,
+              minimum size=0.5cm
+            },
+            nnode/.style={
+              circle,
+              draw=black,
+              minimum size=1cm,
+              fill=uclblue!20
+            }
+        ]
+        
+        % Inputs
+        \node[init] (x1) at (0,2) {$x_1$};
+        \node[init] (x2) at (0,1) {$x_2$};
+        \node[init] (xn) at (0,-1) {$x_n$};
+        \node at (0,0.2) {$\vdots$};
+        
+        % Weights labels
+        \node (w1) at (1.5,2.2) {$w_1$};
+        \node (w2) at (1.5,1.2) {$w_2$};
+        \node (wn) at (1.5,-0.8) {$w_n$};
+        
+        % Neuron
+        \node[nnode] (sigma) at (3,0.5) {$\sum$};
+        \node[nnode] (act) at (5,0.5) {$\sigma(\cdot)$};
+        
+        % Output
+        \node (out) at (7,0.5) {$y$};
+        
+        % Connections
+        \draw[->] (x1) -- (sigma);
+        \draw[->] (x2) -- (sigma);
+        \draw[->] (xn) -- (sigma);
+        \draw[->] (sigma) -- (act) node[midway, above] {$z$};
+        \draw[->] (act) -- (out);
+        
+        \node[above] at (sigma.north) {Aggregation};
+        \node[above] at (act.north) {Activation};
+        \end{tikzpicture}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Solving decision problems}
+    \begin{itemize}
+        \item Explain how to model decision problems
+        \item Include concert example
+        \item Model with Heaviside function 
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Activation Functions}
+    The power of neural networks comes from \textbf{non-linearity}. Without $\sigma$, a deep network is just a single linear matrix multiplication.
+    
+    \begin{columns}[T]
+        \column{0.33\textwidth}
+        \centering
+        \textbf{Sigmoid}
+        \vspace{-0.35cm}
+        
+        $$ \sigma(z) = \frac{1}{1+e^{-z}} $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, ymin=-0.1, ymax=1.1]
+                \addplot[blue, thick, domain=-5:5, samples=100] {1/(1+exp(-x))};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Historically used, but suffers from vanishing gradients.}
+
+        \column{0.33\textwidth}
+        \centering
+        \textbf{ReLU}
+        \vspace{-0.35cm}
+        
+        $$ \sigma(z) = \max(0, z) $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, ymin=-1, ymax=5]
+                \addplot[red, thick, domain=-5:5, samples=100] {max(0,x)};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Standard in modern DL. Sparse activation, no vanishing gradient for $z>0$.}
+
+        \column{0.33\textwidth}
+        \centering
+        \textbf{Leaky ReLU}
+        \vspace{-0.35cm}
+        
+        $$ \max(0.1z, z) $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, ymin=-2, ymax=5]
+                \addplot[green!60!black, thick, domain=-5:5, samples=100] {max(0.1*x,x)};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Prevents "dead neurons".}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{More Activation Functions}
+    \begin{columns}[T]
+        \column{0.24\textwidth}
+        \centering
+        \textbf{Soft-thresholding}
+        \vspace{-0.35cm}
+        
+        $$ \mathcal{S}_\alpha(z) $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, xmin=-4, xmax=4, ymin=-3.5, ymax=3.5]
+                \addplot[blue, thick, domain=-4:-1] {x+1};
+                \addplot[blue, thick, domain=-1:1] {0};
+                \addplot[blue, thick, domain=1:4] {x-1};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Shrinks values towards zero, used in sparse recovery.}
+
+        \column{0.24\textwidth}
+        \centering
+        \textbf{PReLU}
+        \vspace{-0.35cm}
+        
+        $$ \max(\alpha z, z) $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, xmin=-4, xmax=4, ymin=-2, ymax=4]
+                \addplot[red, thick, domain=-4:0] {0.25*x};
+                \addplot[red, thick, domain=0:4] {x};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Similar to Leaky ReLU, but $\alpha$ is a learned parameter.}
+
+        \column{0.24\textwidth}
+        \centering
+        \textbf{Tanh}
+        \vspace{-0.35cm}
+        
+        $$ \tanh(z) $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, axis lines=middle, xmin=-4, xmax=4, ymin=-1.5, ymax=1.5]
+                \addplot[green!60!black, thick, domain=-4:4, samples=100] {tanh(x)};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Zero-centred output, smooth non-linearity.}
+
+        \column{0.24\textwidth}
+        \centering
+        \textbf{Softmax (2D)}
+        \vspace{-0.35cm}
+        
+        $$ \frac{e^{z_1}}{e^{z_1}+e^{z_2}} $$
+        \vspace{-0.15cm}
+        
+        \begin{tikzpicture}[scale=0.55]
+            \begin{axis}[width=5.5cm, height=5cm, view={-30}{30}, colormap/viridis, zmin=-0.1, zmax=1.1, xlabel={$z_1$}, ylabel={$z_2$}, xtick=\empty, ytick=\empty, ztick=\empty]
+                \addplot3[surf, domain=-3:3, domain y=-3:3, samples=20, shader=faceted] {exp(x)/(exp(x)+exp(y))};
+            \end{axis}
+        \end{tikzpicture}
+        
+        \vspace{0.05cm}
+        
+        \footnotesize{Maps a vector into a probability distribution.}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{The Perceptron and the XOR Problem}
+    The single layer Perceptron is a \textbf{linear classifier}. It separates data with a hyperplane $w^\top x + b = 0$.
+    
+    \begin{alertblock}{Limitations \citep{minsky1969}}
+        A single perceptron cannot solve the \textbf{XOR problem} because the classes are not linearly separable.
+    \end{alertblock}
+    
+    \centering
+    \begin{tikzpicture}[scale=0.8]
+        \draw[->] (-0.5,0) -- (2.5,0) node[right] {$x_1$};
+        \draw[->] (0,-0.5) -- (0,2.5) node[above] {$x_2$};
+        
+        % XOR Data points
+        \node[draw, circle, fill=red, inner sep=2pt] at (0,0) {}; % 0,0 -> 0
+        \node[draw, circle, fill=red, inner sep=2pt] at (2,2) {}; % 1,1 -> 0
+        \node[draw, cross out, draw=blue, thick, inner sep=2pt] at (0,2) {}; % 0,1 -> 1
+        \node[draw, cross out, draw=blue, thick, inner sep=2pt] at (2,0) {}; % 1,0 -> 1
+        
+        \node at (1, -1) {No single line can separate red circles from blue crosses.};
+    \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Shallow Neural Networks}
+    To solve XOR, we add a \textbf{hidden layer}.\vspace{-0.1cm}
+    
+    \begin{definition}[Shallow Network]
+        $$ f_w(x) = \sum_{j = 1}^J c_j \, \sigma(w_j^\top \, x + b_j) $$
+    \end{definition}\pause
+    
+    \vspace{-0.1cm}
+        \begin{theoremblock}{Universal Approximation Theorem \protect\citep{cybenko1989,hornik1989,hornik1991}}
+        A shallow network with a sufficiently large (but finite) number of neurons $J$ can approximate any continuous function on a compact set to arbitrary precision.
+    \end{theoremblock}\pause
+    
+    \vspace{-0.1cm}
+    \textbf{Why Deep?} Shallow networks are inefficient. Representing complex functions might require exponentially many neurons in one layer. Depth allows for \textbf{hierarchical features}.
+\end{frame}
+
+\begin{frame}{Multi-Layer Perceptrons (MLP)}
+    Mathematically, a Multi-Layer Perceptron (MLP) or feed-forward neural network \citep{goodfellow2016} is a \textbf{composition} of parameterised functions, i.e.,
+    \begin{align*}
+        f_w(x) := \varphi_L \circ \varphi_{L-1} \circ \cdots \circ \varphi_1(x)
+    \end{align*}
+    where each layer is typically affine-linear followed by a non-linearity
+    $$ \varphi_l(z) = \sigma(W_l z + b_l) \, . $$
+    \begin{center}
+    \begin{tikzpicture}[scale=0.7, transform shape]
+        % Input Layer
+        \foreach \i in {1,...,3}
+            \node[circle, draw, fill=green!20] (I\i) at (0,-\i) {$x_\i$};
+            
+        % Hidden Layer 1
+        \foreach \h in {1,...,4}
+            \node[circle, draw, fill=blue!20] (H1\h) at (3,-\h+0.5) {};
+            
+        % Hidden Layer 2
+        \foreach \h in {1,...,4}
+            \node[circle, draw, fill=blue!20] (H2\h) at (6,-\h+0.5) {};
+            
+        % Output Layer
+        \node[circle, draw, fill=red!20] (O1) at (9,-2) {$y$};
+        
+        % Connections
+        \foreach \i in {1,...,3}
+            \foreach \h in {1,...,4}
+                \draw[->, opacity=0.3] (I\i) -- (H1\h);
+                
+        \foreach \h in {1,...,4}
+            \foreach \k in {1,...,4}
+                \draw[->, opacity=0.3] (H1\h) -- (H2\k);
+                
+        \foreach \k in {1,...,4}
+            \draw[->, opacity=0.3] (H2\k) -- (O1);
+            
+        \node at (0, -4) {Input};
+        \node at (4.5, -4) {Hidden Layers (Feature Extraction)};
+        \node at (9, -4) {Output};
+    \end{tikzpicture}
+    \end{center}
+\end{frame}
+
+%================================================================%
+\section{Convolutional Neural Networks (CNNs)}
+%================================================================%
+
+\begin{frame}{From MLPs to CNNs: Motivation and notation}
+    \begin{itemize}
+        \item \textbf{Problem:} Applying standard MLPs to high-resolution images results in massive weight matrices.
+        \item A $256 \times 256$ RGB image has nearly $200,000$ input values. A single fully connected hidden layer with $1000$ neurons would require $\sim 200,000,000$ weights!
+        \item Furthermore, MLPs ignore the inherent two- or three-dimensional spatial structure of images.
+    \end{itemize}
+    \vspace{0.5em}
+    \textbf{Notation:} Let $x \in \mathbb{R}^{H \times W \times C}$ denote an image of height $H$, width $W$, and $C$ channels (for example, $C=3$ for RGB).
+\end{frame}
+
+\begin{frame}{From MLPs to CNNs: what changes?}
+    \textbf{Connection to MLPs:}
+    \begin{itemize}
+        \item In an MLP, each layer computes $z = W x + b$ with $W \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$, treating the input as a vector and ignoring spatial structure.
+        \item For images, this means flattening $x$ to a vector, losing locality and spatial relationships.
+        \item \textbf{CNNs replace the dense matrix multiplication $W x$ with a convolution operation $x * k$ that preserves spatial structure and uses far fewer parameters.}
+    \end{itemize}
+    \vspace{0.5em}
+    This shift enables the network to exploit local patterns and translation equivariance, which are essential for image data.
+\end{frame}
+
+\begin{frame}{Discrete convolutions}
+    Instead of every output neuron looking at every input pixel, each neuron only looks at small local patch (e.g., $3 \times 3$) and the same weights (the \textbf{kernel} or \textbf{filter}) are slid across the image.
+    
+    \textbf{What changes from MLPs?}
+    \begin{itemize}
+        \item \textbf{Dense layer:} $z = W x + b$ (fully connected, ignores spatial structure)
+        \item \textbf{Convolutional layer:} $y = x * k + b$ (local, spatially structured, weight sharing)
+        \item The convolution replaces the dense matrix multiplication, drastically reducing parameters and preserving spatial relationships.
+    \end{itemize}
+    
+    \textbf{Mathematical Definition:} for a single-channel 2D image $x \in \mathbb{R}^{H \times W}$ and kernel $k \in \mathbb{R}^{m \times n}$, the discrete convolution is defined as
+    \begin{align*}
+        (x * k)[i,j] := \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k[u,v] \; x[i+u, j+v] \, ,
+    \end{align*}
+    where $[i,j]$ indexes the output location, and $k[u,v]$ are the kernel weights.
+
+\end{frame}
+
+
+\begin{frame}{Discrete convolutions}
+    \textbf{Multi-channel case:} For $C$ input channels and $C'$ output channels, the convolutional layer computes
+    \begin{align*}
+        y_{c'}[i,j] := \sum_{c=1}^C \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k_{c',c}[u,v] \; x_c[i+u, j+v] + b_{c'}
+    \end{align*}
+    where $k_{c',c}$ is the kernel for output channel $c'$ and input channel $c$, and $b_{c'}$ is a bias term.
+
+    \textbf{Benefits:}
+    \begin{itemize}
+        \item Drastic reduction in parameter count: $m \times n \times C \times C'$ instead of $HWC \times C'$.
+        \item \textbf{Translation equivariance:} The same kernel is applied at every spatial location.
+        \item Discrete convolution is a linear operator, and a special case of a matrix $W_l$ in MLPs.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Pooling}
+    \textbf{Pooling:} Downsampling operation to reduce spatial dimensions and introduce invariance.
+    
+    \vspace{0.5em}
+    \textbf{What changes from MLPs?}
+    \begin{itemize}
+        \item In MLPs, dimensionality reduction is achieved by reducing the number of neurons in a layer (via $W$).
+        \item In CNNs, \textbf{pooling layers} (e.g., max or average pooling) explicitly reduce spatial resolution while preserving local features and introducing invariances.
+        \item Pooling replaces the role of downsampling performed by dense layers, but does so in a spatially aware, local fashion.
+    \end{itemize}
+    
+    \textbf{Example: Max Pooling:}
+    \begin{align*}
+        y[i,j] = \max_{(u,v) \in \mathcal{P}} x[i+u, j+v]
+    \end{align*}
+    where $\mathcal{P}$ is the pooling window (e.g., $2 \times 2$).
+\end{frame}
+
+\begin{frame}{Pooling, Subsampling, and Receptive Fields}
+\textbf{Max Pooling:}
+    \begin{align*}
+        y[i,j] = \max_{(u,v) \in \mathcal{P}} x[i+u, j+v]
+    \end{align*}
+
+    \textbf{Average Pooling:}
+    \begin{align*}
+        y[i,j] = \frac{1}{|\mathcal{P}|} \sum_{(u,v) \in \mathcal{P}} x[i+u, j+v]
+    \end{align*}
+    where $\mathcal{P}$ is the pooling window (e.g., $2 \times 2$).
+    
+    \only<2>{\textbf{Purpose:}
+    \begin{itemize}
+        \item Dimensionality reduction
+        \item Introduce spatial invariance
+        \item Extract dominant features
+    \end{itemize}}
+    
+    \only<3->{\textbf{Receptive Field:}
+    The region of the input space that affects a particular output unit. Stacking convolutions and pooling increases the receptive field size.}
+\end{frame}
+
+%================================================================%
+\section{Training Dynamics \& Optimisation}
+%================================================================%
+
+\begin{frame}{Empirical Risk Minimisation}
+    We train the network by minimising an empirical risk over a dataset $\{(x_i, y_i)\}_{i=1}^s$, i.e.,
+    
+    $$ \min_{w} \mathcal{L}(w) := \frac{1}{s} \sum_{i=1}^s \ell(f_w(x_i), y_i) \, . $$
+    Here $\ell$ denotes a loss function that measures the deviation between the neural network output $f_w(x_i)$ with input $x_i$ and the target $y_i$.\pause
+
+    \vspace{0.5em}
+    
+    \textbf{Loss Functions:}
+    \begin{itemize}
+        \item Mean Squared Error (MSE): $\frac{1}{2}\| \hat{y} - y \|^2$ (Regression / Inverse Problems).
+        \item Cross-Entropy Loss: $-\sum y_k \log(\hat{y}_k)$ (Classification).
+    \end{itemize}
+
+    \vspace{0.5em}
+    
+    \textbf{The Challenge:} The loss landscape $\mathcal{L}(w)$ is highly \textbf{non-convex}.
+\end{frame}
+
+\begin{frame}{Convexity}
+    \begin{columns}[T]
+        \column{0.55\textwidth}
+        \begin{block}{Definition}
+            A differentiable function $f \colon \mathbb{R}^n \to \mathbb{R}$ is \textbf{convex} if, for all $u, v \in \mathbb{R}^n$ and all $\lambda \in [0,1]$,
+            \begin{align*}
+                f\!\left( \lambda u + (1-\lambda) v \right) \leq \lambda f(u) + (1-\lambda) f(v) \, .
+            \end{align*}
+        \end{block}
+
+        \vspace{0.5em}
+        Equivalently, $f$ lies \emph{above} every tangent hyperplane, i.e.,
+        \begin{align*}
+            f(v) \geq f(u) + \left\langle \nabla f(u),\, v - u \right\rangle \, ,
+        \end{align*}
+        for all $u, v \in \mathbb{R}^n$.
+
+        \column{0.45\textwidth}
+        \centering
+        \begin{tikzpicture}[scale=0.9]
+            % Pre-compute all values
+            \pgfmathsetmacro{\ua}{0.7}
+            \pgfmathsetmacro{\va}{2.6}
+            \pgfmathsetmacro{\fu}{\ua*\ua - \ua + 0.5}
+            \pgfmathsetmacro{\fv}{\va*\va - \va + 0.5}
+            \pgfmathsetmacro{\slope}{(\fv-\fu)/(\va-\ua)}
+            \pgfmathsetmacro{\dfu}{2*\ua - 1}
+            \pgfmathsetmacro{\mx}{0.5*\ua + 0.5*\va}
+            \pgfmathsetmacro{\mychord}{0.5*\fu + 0.5*\fv}
+            \pgfmathsetmacro{\myfunc}{\mx*\mx - \mx + 0.5}
+            \pgfmathsetmacro{\tangentend}{\dfu*(3.1-\ua)+\fu}
+            \pgfmathsetmacro{\chordlabely}{\fv+0.3}
+            \begin{axis}[
+                width=6cm, height=5.5cm,
+                axis lines=middle,
+                xmin=-0.3, xmax=3.3,
+                ymin=-0.5, ymax=5.5,
+                xtick=\empty, ytick=\empty,
+                xlabel={$w$}, ylabel={$f(w)$},
+                xlabel style={right},
+                ylabel style={above},
+                clip=false,
+            ]
+            % Convex function: f(x) = x^2 - x + 0.5
+            \addplot[uclblue, thick, domain=0.1:3.1, samples=80] {x^2 - x + 0.5};
+            % Chord between u and v
+            \addplot[darkgreen, thick, dashed, domain=0.7:2.6] {\slope*(x-\ua)+\fu};
+            % Tangent at u
+            \addplot[red, thick, domain=0.1:3.1] {\dfu*(x-\ua)+\fu};
+            % Markers at u and v
+            \addplot[mark=*, mark size=2pt, uclblue] coordinates {(\ua,\fu)};
+            \addplot[mark=*, mark size=2pt, uclblue] coordinates {(\va,\fv)};
+            % Midpoint: chord above function
+            \addplot[mark=*, mark size=2pt, darkgreen] coordinates {(\mx,\mychord)};
+            \addplot[mark=*, mark size=2pt, red!70!black] coordinates {(\mx,\myfunc)};
+            \draw[<->, gray, thin] (axis cs:\mx,\myfunc) -- (axis cs:\mx,\mychord)
+                node[midway, left, font=\tiny] {gap};
+            \node[below, font=\scriptsize] at (axis cs:\ua,\fu) {$u$};
+            \node[below, font=\scriptsize] at (axis cs:\va,\fv) {$v$};
+            \node[right, font=\scriptsize, red] at (axis cs:3.1,\tangentend) {tangent};
+            \node[right, font=\scriptsize, darkgreen] at (axis cs:2.6,\chordlabely) {chord};
+            \end{axis}
+        \end{tikzpicture}
+        \vspace{0.1em}
+
+        {\footnotesize Example: $f(w) = w^2 - w + 0.5$. The function (blue) lies below the chord (green) and above the tangent (red).}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{$L$-smoothness}
+    \begin{columns}[T]
+        \column{0.55\textwidth}
+        \begin{block}{Definition}
+            A differentiable function $f$ is \textbf{$L$-smooth} if there exists $L > 0$ such that, for all $u, v \in \mathbb{R}^n$,
+            \begin{align*}
+                \left\| \nabla f(u) - \nabla f(v) \right\| \leq L \left\| u - v \right\| .
+            \end{align*}
+        \end{block}
+        Equivalently, $f$ lies \emph{below} the quadratic upper bound at every point,\vspace{-0.25cm}
+        \begin{align*}
+            f(v) \leq f(u) + \left\langle \nabla f(u),\, v - u \right\rangle + \frac{L}{2}\left\| v - u \right\|^2 \, .
+        \end{align*}
+
+        \vspace{-0.25cm}
+        The constant $L$ controls how fast the gradient can change: large $L$ means highly curved.
+
+        \vspace{0.25em}
+        For example, $f(w) = 1 - \cos\left( w-u \right)$ is globally $1$-smooth because
+        \begin{align*}
+            f''(w) = \cos\left( w-u \right) \qquad \text{and hence} \qquad \left| f''(w) \right| \leq 1 \, .
+        \end{align*}
+
+        \column{0.45\textwidth}
+        \centering
+        \begin{tikzpicture}[scale=0.9]
+            % Pre-compute all values
+            \pgfmathsetmacro{\ub}{1.2}
+            \pgfmathsetmacro{\Lsmooth}{1.0}
+            \pgfmathsetmacro{\fub}{0.0}
+            \pgfmathsetmacro{\dfub}{0.0}
+            \pgfmathsetmacro{\quadend}{\fub + 0.5*\Lsmooth*(3.0-\ub)*(3.0-\ub) + 0.1}
+            \pgfmathsetmacro{\vx}{2.75}
+            \pgfmathsetmacro{\dx}{\vx-\ub}
+            \pgfmathsetmacro{\fvis}{1 - cos(deg(\dx))}
+            \pgfmathsetmacro{\qvis}{\fub + 0.5*\Lsmooth*\dx*\dx}
+            \begin{axis}[
+                width=6cm, height=5.5cm,
+                axis lines=middle,
+                xmin=-0.3, xmax=3.3,
+                ymin=-0.2, ymax=2.2,
+                xtick=\empty, ytick=\empty,
+                xlabel={$w$}, ylabel={$f(w)$},
+                xlabel style={right},
+                ylabel style={above},
+                clip=false,
+            ]
+            % L-smooth function with exact global bound L = 1
+            \addplot[uclblue, thick, domain=0.1:3.1, samples=120]
+                {1 - cos(deg(x-\ub))};
+            % Quadratic upper bound at u
+            \addplot[darkgreen, thick, dashed, domain=0.1:3.1, samples=120]
+                {\fub + \dfub*(x-\ub) + 0.5*\Lsmooth*(x-\ub)^2};
+            % Marker at u
+            \addplot[mark=*, mark size=2pt, uclblue] coordinates {(\ub,\fub)};
+            \draw[<->, gray, thin] (axis cs:\vx,\fvis) -- (axis cs:\vx,\qvis)
+                node[midway, right, font=\tiny] {gap};
+            \node[below left, font=\scriptsize] at (axis cs:\ub,\fub) {$u$};
+            \node[right, font=\scriptsize, darkgreen] at (axis cs:3.0,\quadend)
+                {$f(u){+}\langle\nabla f(u),{\cdot}\rangle{+}\tfrac{L}{2}\|{\cdot}\|^2$};
+            \end{axis}
+        \end{tikzpicture}
+
+        {\footnotesize Example: $f(w) = 1 - \cos\left( w-u \right)$ with $u = 1.2$. Here the exact global smoothness constant is $L = 1$, and the function (blue) stays below the quadratic envelope (green).}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Gradient descent}
+    To minimise the empirical risk $\mathcal{L}(w)$, the simplest first-order method is \textbf{gradient descent}.
+    
+    \textbf{First-order optimality condition:} a minimiser $w^*$ satisfies $\nabla_w \mathcal{L}(w^*) = 0$.\pause
+
+    \vspace{0.5em}
+    Starting from an initial guess $w^0$, each iteration performs the update
+    \begin{align*}
+        w^{k+1} = w^k - \eta \, \nabla_w \mathcal{L}(w^k) \, ,
+    \end{align*}
+    where $\eta > 0$ is the \textbf{step size} (or learning rate), chosen using smoothness assumptions of $\mathcal{L}$.\pause
+
+    \begin{block}{Convergence}
+        If $\mathcal{L}$ is convex and $\nabla_w \mathcal{L}$ is $L$-Lipschitz continuous, then gradient descent converges for any step size $\eta \leq 1/L$, with rate $\mathcal{O}(1/k)$.
+    \end{block}
+
+    \textbf{Caveat:} the empirical risk $\mathcal{L}(w)$ in deep learning is usually highly non-convex, so convergence guarantees to global minima do not apply, but in practice, gradient descent often still works remarkably well.
+\end{frame}
+
+\begin{frame}{Bregman proximal view of gradient descent}
+    Gradient descent has a deeper variational interpretation via the \textbf{Bregman distance} \citep{bregman, kiwiel1997proximal}.
+
+    The Bregman distance generated by a convex function $J$ is
+    \begin{align*}
+        D_J(w, v) := J(w) - J(v) - \left\langle \nabla J(v),\, w - v \right\rangle \geq 0 \, .
+    \end{align*}
+    
+    \vspace{-0.15cm}
+    \pause
+
+    \begin{columns}[T]
+        \column{0.47\textwidth}
+        Consider the convex function $J(w) = w \log\left( w \right) - w$ on $\left( 0, \infty \right)$, for which
+        \begin{align*}
+            \nabla J(w) = \log\left( w \right) .
+        \end{align*}
+        Hence the Bregman distance is the vertical gap
+        \begin{align*}
+            D_J(w, v) = w \log\left( \frac{w}{v} \right) - w + v \, .
+        \end{align*}
+
+        \column{0.51\textwidth}
+        \centering
+        \begin{tikzpicture}[scale=0.9]
+            % Example parameters
+            \pgfmathsetmacro{\vb}{1.3}
+            \pgfmathsetmacro{\wb}{2.45}
+            \pgfmathsetmacro{\Jv}{\vb*ln(\vb) - \vb}
+            \pgfmathsetmacro{\dJv}{ln(\vb)}
+            \pgfmathsetmacro{\Jw}{\wb*ln(\wb) - \wb}
+            \pgfmathsetmacro{\Tw}{\Jv + \dJv*(\wb-\vb)}
+            \pgfmathsetmacro{\tanlabely}{\Jv + \dJv*(3.2-\vb)}
+            \begin{axis}[
+                width=6.2cm, height=5.5cm,
+                axis lines=middle,
+                xmin=0.2, xmax=3.4,
+                ymin=-1.2, ymax=1.0,
+                xtick=\empty, ytick=\empty,
+                xlabel={$w$}, ylabel={$J(w)$},
+                xlabel style={right},
+                ylabel style={above},
+                clip=false,
+            ]
+            \addplot[uclblue, thick, domain=0.25:3.2, samples=140] {x*ln(x) - x};
+            \addplot[red, thick, domain=0.25:3.2, samples=120] {\Jv + \dJv*(x-\vb)};
+            \addplot[mark=*, mark size=2pt, uclblue] coordinates {(\vb,\Jv)};
+            \addplot[mark=*, mark size=2pt, uclblue] coordinates {(\wb,\Jw)};
+            \addplot[mark=*, mark size=2pt, red] coordinates {(\wb,\Tw)};
+            \draw[<->, gray, thin] (axis cs:\wb,\Tw) -- (axis cs:\wb,\Jw)
+                node[midway, right, font=\tiny] {$D_J(w,v)$};
+            \node[below, font=\scriptsize] at (axis cs:\vb,\Jv) {$v$};
+            \node[below, font=\scriptsize] at (axis cs:\wb,\Tw) {$w$};
+            \node[right, font=\scriptsize, red] at (axis cs:3.2,\tanlabely) {tangent at $v$};
+            \end{axis}
+        \end{tikzpicture}
+
+        % {\footnotesize Example: $J(w) = w\log\left( w \right) - w$. The Bregman distance is the gap between $J$ and the tangent line at $v$.}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Bregman proximal view of gradient descent}
+    Gradient descent has a deeper variational interpretation via the \textbf{Bregman distance}.
+
+    The Bregman distance generated by a convex function $J$ is
+    \begin{align*}
+        D_J(w, v) := J(w) - J(v) - \left\langle \nabla J(v),\, w - v \right\rangle \geq 0 \, .
+    \end{align*}
+    \vspace{0.5em}
+    Consider the Bregman proximal iteration
+    \begin{align*}
+        w^{k+1} = \argmin_{w} \left\{ \mathcal{L}(w) + D_J(w, w^k) \right\}
+    \end{align*}
+    Different choices of $J$ produce different local geometries. Gradient descent arises from one particular choice.
+\end{frame}
+
+\begin{frame}{Bregman proximal view of gradient descent (cont.)}
+    For gradient descent, we choose
+    \begin{align*}
+        J(w) = \frac{1}{2\eta}\|w\|^2 - \mathcal{L}(w) ,
+    \end{align*}
+    so that $\nabla J(w) = \frac{1}{\eta}w - \nabla_w \mathcal{L}(w)$. Expanding the Bregman distance then yields
+    \begin{align*}
+        \mathcal{L}(w) + D_J(w, w^k)
+        &= \mathcal{L}(w^k) + \left\langle \nabla_w \mathcal{L}(w^k),\, w - w^k \right\rangle + \frac{1}{2\eta}\left\| w - w^k \right\|^2 \, .
+    \end{align*}
+    This is precisely the \textbf{local quadratic model} of $\mathcal{L}$ at $w^k$.
+
+    \vspace{0.5em}
+    Taking the first-order optimality condition of this model yields
+    \begin{align*}
+        0 = \frac{1}{\eta}\left( w^{k+1} - w^k \right) + \nabla_w \mathcal{L}(w^k)
+        \quad \Longleftrightarrow \quad
+        w^{k+1} = w^k - \eta \, \nabla_w \mathcal{L}(w^k) \, ,
+    \end{align*}
+    recovering the gradient descent update.
+
+    \vspace{0.5em}
+    \begin{theoremblock}{Key insight}
+        Gradient descent is a Bregman proximal step. The choice of $J$ determines the geometry of the descent, and other choices of $J$ lead to natural generalisations (mirror descent, natural gradient).
+    \end{theoremblock}
+\end{frame}
+
+\begin{frame}{Stochastic gradient method (SGM)}
+    \textbf{Problem:} computing $\nabla_w \mathcal{L}(w^k) = \frac{1}{s}\sum_{i=1}^s \nabla_w \ell(f_{w^k}(x_i), y_i)$ requires a pass over the entire dataset at each iteration; often infeasible for large $s$.\pause
+
+    \vspace{0.5em}
+    \textbf{Key observation:} each per-sample gradient is an \emph{unbiased estimator} of the full gradient,
+    \begin{align*}
+        \mathbb{E}_i\!\left[ \nabla_w \ell\!\left( f_w(x_i), y_i \right) \right]
+        = \frac{1}{s}\sum_{j=1}^s \nabla_w \ell\!\left( f_w(x_j), y_j \right)
+        = \nabla_w \mathcal{L}(w) \, .
+    \end{align*}
+    
+    \pause
+
+    \textbf{SGM update:} at each iteration, draw an index $i \sim \mathcal{U}\{1,\ldots,s\}$ uniformly at random and set
+    \begin{align*}
+        w^{k+1} = w^k - \eta_k \, \nabla_w \ell\!\left( f_{w^k}(x_i), y_i \right) .
+    \end{align*}
+    
+    \pause
+
+    \begin{alertblock}{SGM is not a descent method}
+        There is no guarantee that $\mathcal{L}(w^{k+1}) \leq \mathcal{L}(w^k)$ at every step. The injected stochastic noise can, however, help escape sharp local minima.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Mini-batching and step size schedules}
+    \textbf{Mini-batch SGM:} instead of a single sample, compute the gradient over a random subset $\mathcal{B}_k \subset \{1,\ldots,s\}$ of batch size $B = |\mathcal{B}_k| \ll s$,
+    \begin{align*}
+        w^{k+1} = w^k - \eta_k \, \frac{1}{B} \sum_{i \in \mathcal{B}_k} \nabla_w \ell\!\left( f_{w^k}(x_i), y_i \right) .
+    \end{align*}
+    This reduces gradient variance whilst remaining cheaper per iteration than gradient descent.\pause
+
+    \textbf{Step size schedules:} convergence of SGM (in the convex setting) requires a diminishing sequence $\{\eta_k\}$ satisfying the Robbins--Monro conditions, i.e.,
+    \begin{align*}
+        \lim_{k \to \infty} \eta_k = 0 \qquad \text{and} \qquad \sum_{k=0}^\infty \eta_k = \infty \, .
+    \end{align*}
+    \only<1-2>{Typical choices are $\eta_k = \eta/(k+1)$ or $\eta_k = \eta/\sqrt{k+1}$. Under these conditions, SGM converges at rate $\mathcal{O}(1/\sqrt{k})$ — slower than the $\mathcal{O}(1/k)$ rate of gradient descent.}
+
+    \only<3->{In practice, fixed or piece-wise constant step sizes with warm restarts are used with early stopping, often outperforming theoretically motivated schedules.}
+\end{frame}
+
+\begin{frame}{From momentum to Adam}
+    Let $g^k := \nabla_w \ell\!\left( f_{w^k}(x_{i_k}), y_{i_k} \right)$ denote a stochastic gradient.
+
+    \vspace{0.5em}
+    \textbf{Momentum (first moment smoothing).}
+    \begin{align*}
+        m^k &= \beta_1 m^{k-1} + (1-\beta_1) g^k \, , \\
+        w^{k+1} &= w^k - \eta \, m^k \, .
+    \end{align*}
+    Here $m^k$ is an exponential moving average of the past gradients, i.e.,
+    \begin{align*}
+        m^k = (1-\beta_1)\sum_{t=1}^{k} \beta_1^{k-t} g^t \, .
+    \end{align*}
+
+    \vspace{0.25em}
+    \textbf{Root Mean Square (RMS) scaling (second moment smoothing).}
+    \begin{align*}
+        v^k &= \beta_2 v^{k-1} + (1-\beta_2)\left( g^k \odot g^k \right) \, .
+    \end{align*}
+    This estimates gradient magnitudes and enables step-size normalisation \textbf{per-coordinate}.
+\end{frame}
+
+\begin{frame}{Adam: update rule and bias correction}
+    Adam combines both moving averages with diagonal preconditioning. Starting with $m^0 = 0$ and $v^0 = 0$, define
+    \begin{align*}
+        m^k &= \beta_1 m^{k-1} + (1-\beta_1) g^k \, , \\
+        v^k &= \beta_2 v^{k-1} + (1-\beta_2)\left( g^k \odot g^k \right) \, .
+    \end{align*}
+    Since both are initialised at zero, they are biased towards zero for small $k$. Adam therefore uses
+    \begin{align*}
+        \hat m^k &= \frac{m^k}{1-\beta_1^k} \, ,
+        &\hat v^k &= \frac{v^k}{1-\beta_2^k} \, .
+    \end{align*}
+    The parameter update is\vspace{-0.20cm}
+    \begin{align*}
+        w^{k+1} = w^k - \eta \, \frac{\hat m^k}{\sqrt{\hat v^k} + \varepsilon} \, ,
+    \end{align*}
+
+    \vspace{-0.13cm}
+    where the division and square root are applied component-wise.
+\end{frame}
+
+\begin{frame}{Adam: interpretation and practical caveats}
+    Adam can be written as a diagonally preconditioned momentum step, i.e.,
+    \begin{align*}
+        w^{k+1} = w^k - \eta \, P_k \, \hat m^k \, ,
+        \qquad
+        P_k := \operatorname{diag}\!\left( \left( \sqrt{\hat v^k} + \varepsilon \right)^{-1} \right) .
+    \end{align*}
+    Coordinates with persistently large gradients receive smaller effective steps, while flat coordinates receive larger steps.
+
+    \vspace{0.5em}
+    Typical defaults are $\beta_1 = 0.9$, $\beta_2 = 0.999$, and $\varepsilon = 10^{-8}$.
+
+    \vspace{0.5em}
+    \begin{alertblock}{Theory vs practice}
+        Adam is highly effective in deep learning practice, but classical convergence guarantees can fail without additional assumptions or modifications. A common robust variant is AdamW, which decouples weight decay from the adaptive step.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Practical training of deep networks}
+    Successful training of modern deep networks requires more than an optimiser. We must address two fundamental challenges:
+    \begin{enumerate}
+        \item \textbf{Overfitting and generalisation:} The model memorises training data instead of learning general patterns. Deep networks have millions of parameters, but often only thousands or tens of thousands of training examples.
+        \item \textbf{Internal covariate shift:} As weights update, the distribution of each layer's input changes, slowing convergence and requiring careful tuning of step sizes.
+    \end{enumerate}
+    \vspace{0.5em}
+    Two practical techniques address these concerns:
+    \begin{itemize}
+        \item \textbf{Dropout:} Stochastic regularisation applied during training to prevent neuron co-adaptation and overfitting.
+        \item \textbf{Batch normalisation:} Normalises layer inputs to stabilise training dynamics and reduce internal covariate shift.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Dropout in practice}
+    \textbf{Placement:} After a layer's activation, typically at each hidden layer. Each neuron is independently dropped with probability $(1-q)$.
+
+    \vspace{0.25em}
+    During training, randomly zero out a fraction $(1-q)$ of activations using a Bernoulli mask:
+    \begin{align*}
+        m_j \sim \mathrm{Bernoulli}(q), \qquad j = 1, \ldots, d,
+    \end{align*}
+    where $q \in (0,1]$ is the \textbf{keep probability} (typical: $q = 0.5$).
+
+    \vspace{0.25em}
+    \textbf{Inverted dropout} (modern standard) rescales activations:
+    \begin{align*}
+        \tilde h = \frac{1}{q}\left( m \odot h \right) .
+    \end{align*}
+    This preserves expected activation: $\mathbb{E}[\tilde h_j] = h_j$, so no test-time adjustment is needed.
+
+    \vspace{0.25em}
+    \textbf{Inference:} Dropout is disabled; deterministically use $\tilde h = h$.
+\end{frame}
+
+\begin{frame}{Why dropout works}
+    \textbf{Ensemble perspective:} Dropout creates an ensemble of $2^d$ sub-networks (one per binary mask). Inference approximates their average prediction, reducing variance.
+
+    \vspace{0.5em}
+    \textbf{Regularisation perspective:} The stochastic perturbations encourage the network to learn redundant, robust features and prevent co-adaptation—where neurons become specialised to specific partners in training data.
+
+    \vspace{0.5em}
+    \textbf{Effect on optimisation:} By reducing overfitting, dropout improves generalisation to unseen data. The noise also provides implicit regularisation during SGD, helping escape sharp local minima.
+\end{frame}
+
+\begin{frame}{Batch normalisation in practice}
+    \textbf{Placement:} Applied to pre-activations $z$ (before the nonlinearity) within a hidden layer. Typical architecture: Dense $\to$ Batch Norm $\to$ Nonlinearity $\to$ Dropout.
+
+    \vspace{0.25em}
+    For each feature/channel, compute mini-batch statistics:
+    \begin{align*}
+        \mu_{\mathcal{B}} &= \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} z_i, \\[0.1em]
+        \sigma_{\mathcal{B}}^2 &= \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \left( z_i - \mu_{\mathcal{B}} \right)^2 .
+    \end{align*}
+    Then normalise and apply learnable affine parameters:
+    \begin{align*}
+        \hat z_i &= \frac{z_i - \mu_{\mathcal{B}}}{\sqrt{\sigma_{\mathcal{B}}^2 + \varepsilon}}, \\[0.1em]
+        y_i &= \gamma \, \hat z_i + \beta .
+    \end{align*}
+    Here $\gamma$ (scale) and $\beta$ (shift) are trained via backpropagation.
+\end{frame}
+
+\begin{frame}{Batch normalisation: training vs inference}
+    \textbf{Training:} Use mini-batch statistics $\mu_{\mathcal{B}}$, $\sigma_{\mathcal{B}}^2$.
+
+    \vspace{0.5em}
+    \textbf{Inference:} Mini-batches are unavailable (single sample or fixed batch). Instead, use \emph{running averages} accumulated during training via exponential moving average (EMA):
+    \begin{align*}
+        \mu_{\text{running}} &\gets (1-\alpha) \mu_{\text{running}} + \alpha \, \mu_{\mathcal{B}}, \\[0.1em]
+        \sigma^2_{\text{running}} &\gets (1-\alpha) \sigma^2_{\text{running}} + \alpha \, \sigma_{\mathcal{B}}^2,
+    \end{align*}
+    where $\alpha$ is a momentum coefficient (typical: $\alpha = 0.1$).
+\end{frame}
+
+\begin{frame}{Why batch normalisation helps}
+    \textbf{Internal Covariate Shift Problem:} As weights $w$ update, the distribution of inputs to each layer shifts. Downstream layers must continuously re-adapt, slowing convergence.
+
+    \vspace{0.5em}
+    \textbf{Batch Normalisation Solution:} Enforce zero mean and unit variance on layer inputs. Benefits:
+    \begin{itemize}
+        \item \textbf{Faster convergence:} Reduced covariate shift enables higher learning rates and more stable training dynamics.
+        \item \textbf{Mitigates vanishing gradients:} Normalisation keeps pre-activations in the active range of nonlinearities (e.g., $z \in [-2,2]$ for tanh), preventing gradient attenuation through deep layers.
+        \item \textbf{Implicit regularisation:} Mini-batch noise acts as a regulariser, reducing overfitting similar to dropout.
+        \item \textbf{Learnable scale/shift:} Parameters $\gamma, \beta$ allow the network to learn the optimal input distribution, preserving expressiveness.
+    \end{itemize}
+\end{frame}
+
+%================================================================%
+\section{The Chain Rule of Calculus \& Backpropagation}
+%================================================================%
+
+\begin{frame}{How do we compute gradients?}
+    In the optimisation section, we introduced updates such as
+    \begin{align*}
+        w^{k+1} &= w^k - \eta\,\nabla_w\mathcal{L}(w^k), \\
+        w^{k+1} &= w^k - \eta_k\,\nabla_w\ell\!\left(f_{w^k}(x_{i_k}),y_{i_k}\right) .
+    \end{align*}
+    These formulas are only useful if we can compute the gradients efficiently for deep networks.
+
+    \vspace{0.5em}
+    \begin{block}{Core question}
+        Given $f_w(x)=\varphi_L\circ\cdots\circ\varphi_1(x)$, how do we compute
+        $\nabla_w\mathcal{L}(w)$ and stochastic gradients without differentiating each path separately?
+    \end{block}
+
+    Backpropagation \citep{rumelhart1986learning} is the answer: a dynamic-programming application of the chain rule that reuses intermediate quantities and computes all parameter gradients layer-by-layer.
+\end{frame}
+
+\begin{frame}{Backpropagation as constrained optimisation}
+    For the MLP introduced earlier, i.e.,\vspace{-0.15cm}
+    \begin{align*}
+        f_w(x) = \varphi_L \circ \cdots \circ \varphi_1(x),
+        \qquad
+        \varphi_l(z)=\sigma_l(W_l z+b_l) \, ,
+    \end{align*}
+    we collect all trainable parameters as\vspace{-0.15cm}
+    \begin{align*}
+        w = \{(W_l,b_l)\}_{l=1}^L \, .
+    \end{align*}
+    For each sample $(x^i,y^i)$, we define layer variables
+    \begin{align*}
+        z_l^i &= W_l x_{l-1}^i + b_l, \\
+        x_l^i &= \sigma_l(z_l^i),
+        \qquad l=1,\ldots,L,
+        \qquad x_0^i = x^i \, .
+    \end{align*}
+    Training minimises the empirical risk\vspace{-0.15cm}
+    \begin{align*}
+        \min_{w} \; \frac{1}{s}\sum_{i=1}^s \ell\!\left(y^i, x_L^i\right),
+    \end{align*}
+    where the dependence on $w$ is nested through all layers.
+\end{frame}
+
+\begin{frame}{Equivalent constrained formulation}
+    Let's introduce activation and pre-activation variables as optimisation variables, i.e.,
+    \begin{align*}
+        \min_{w,\{x_l^i,z_l^i\}} \; &\frac{1}{s}\sum_{i=1}^s \ell\!\left(y^i, x_L^i\right)
+    \end{align*}
+    subject to
+    \begin{align*}
+        z_l^i - W_l x_{l-1}^i - b_l &= 0, \\
+        x_l^i - \sigma_l(z_l^i) &= 0,
+        \qquad l=1,\ldots,L,
+        \quad i=1,\ldots,s \, .
+    \end{align*}
+    This formulation is equivalent to the nested network definition and makes layerwise dependencies explicit.
+\end{frame}
+
+\begin{frame}{Lagrangian and optimality conditions}
+    We can then introduce so-called Lagrange multipliers $p_l^i$ and $q_l^i$ for the two constraints, and define the Lagrangian
+    \begin{align*}
+        \mathcal{L} = \frac{1}{s}\sum_{i=1}^s \Bigg[\ell\!\left(y^i,x_L^i\right)
+        + \sum_{l=1}^L \left\langle p_l^i,\, z_l^i - W_l x_{l-1}^i - b_l \right\rangle
+        + \sum_{l=1}^L \left\langle q_l^i,\, x_l^i - \sigma_l(z_l^i) \right\rangle\Bigg] \, .
+    \end{align*}
+
+    \vspace{-0.1cm}
+    Stationarity with respect to $x_l^i$ gives the adjoint recursion
+    \begin{align*}
+        q_L^i &= -\nabla_{x_L}\ell\!\left(y^i,x_L^i\right), \\
+        q_l^i &= W_{l+1}^{\top}p_{l+1}^i,
+        \qquad l=L-1,\ldots,1 \, .
+    \end{align*}
+    Stationarity with respect to $z_l^i$ gives\vspace{-0.2cm}
+    \begin{align*}
+        p_l^i = \left(J\sigma_l(z_l^i)\right)^{\top} q_l^i \, .
+    \end{align*}
+    Here $J\sigma_l(z)$ denotes the Jacobian matrix of $\sigma_l$ at $z$. For elementwise activations, $J\sigma_l(z)=\operatorname{diag}(\sigma_l'(z))$.
+\end{frame}
+
+\begin{frame}{Recovery of classical backpropagation recursions}
+    Stationarity with respect to multipliers recovers the forward pass constraints,
+    \begin{align*}
+        \nabla_{p_l^i}\mathcal{L}=0 &\Longleftrightarrow z_l^i = W_l x_{l-1}^i + b_l, \\
+        \nabla_{q_l^i}\mathcal{L}=0 &\Longleftrightarrow x_l^i = \sigma_l(z_l^i) \, .
+    \end{align*}
+
+    \vspace{-0.1cm}
+    Let's define pre-activation errors $\delta_l^i := -p_l^i$. Combining the previous relations with these yields
+    \begin{align*}
+        \delta_L^i &= \nabla_{x_L}\ell\!\left(y^i,x_L^i\right) \odot \sigma_L'\!\left(z_L^i\right), \\
+        \delta_l^i &= \left(W_{l+1}^{\top}\delta_{l+1}^i\right) \odot \sigma_l'\!\left(z_l^i\right),
+        \qquad l=L-1,\ldots,1 \, .
+    \end{align*}
+    This is the standard backward recursion from the chain rule, obtained here via first-order optimality of the constrained problem.
+\end{frame}
+
+\begin{frame}{Gradients with respect to parameters}
+    Stationarity of $\mathcal{L}$ with respect to $W_l$ and $b_l$ then gives
+    \begin{align*}
+        \nabla_{W_l}\mathcal{L}(w)
+        &= \frac{1}{s}\sum_{i=1}^s \delta_l^i\left(x_{l-1}^i\right)^{\top}, \\
+        \nabla_{b_l}\mathcal{L}(w)
+        &= \frac{1}{s}\sum_{i=1}^s \delta_l^i \, .
+    \end{align*}
+    A backpropagation step computes all gradients via
+    \begin{enumerate}
+        \item forward pass for $(x_l^i,z_l^i)$,
+        \item backward recursion for $\delta_l^i$,
+        \item accumulation of $\nabla_{W_l}\mathcal{L}$ and $\nabla_{b_l}\mathcal{L}$.
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Generalising backpropagation: an operator view}
+    Classical backpropagation assumes explicit layer maps
+    \begin{align*}
+        x_l = \sigma_l(W_l x_{l-1}+b_l).
+    \end{align*}
+    In modern inverse-problem architectures, a ``layer'' is often defined \emph{implicitly} as the solution of an operator equation.
+
+    \begin{block}{Unified template}
+        Define a state $z^\star$ by solving\vspace{-0.15cm}
+        \begin{align*}
+            \mathcal{G}(z^\star,w,x) = 0,
+        \end{align*}
+        then optimise a loss $\ell(z^\star,y)$ with respect to parameters $w$.
+    \end{block}
+
+    Backpropagation generalises to \textbf{implicit differentiation} and \textbf{adjoint equations} for this constraint.
+\end{frame}
+
+\begin{frame}{General constrained Lagrangian form}
+    Hence, a unified training model is the equality-constrained problem
+    \begin{align*}
+        \min_{z,w}\; &\ell(z,y) \\
+        \text{s.t.}\; &\mathcal{G}(z,w,x)=0.
+    \end{align*}
+    Here $z$ is the implicit layer state (or trajectory), $w$ are trainable parameters, and $\mathcal{G}$ defines the operator constraint.
+
+    \vspace{0.5em}
+    Let's introduce a Lagrange multiplier $\lambda$ and define
+    \begin{align*}
+        \mathcal{L}(z,w,\lambda)
+        :=\ell(z,y)+\langle \lambda,\mathcal{G}(z,w,x)\rangle.
+    \end{align*}
+    This is the common starting point for implicit, equilibrium, and continuous-depth backpropagation rules.
+\end{frame}
+
+\begin{frame}{General stationarity conditions}
+    For equality constraints, the first-order stationarity conditions are
+    \begin{align*}
+        \nabla_{\lambda}\mathcal{L}=0
+        &\Longleftrightarrow \mathcal{G}(z,w,x)=0
+        \quad \text{(primal feasibility)}, \\
+        \nabla_{z}\mathcal{L}=0
+        &\Longleftrightarrow \nabla_z\ell(z,y)+\left(\partial_z\mathcal{G}(z,w,x)\right)^\top\lambda=0, \\
+        \nabla_{w}\mathcal{L}=0
+        &\Longleftrightarrow \left(\partial_w\mathcal{G}(z,w,x)\right)^\top\lambda=0
+        \quad \text{(at optimum)}.
+    \end{align*}
+    In practice, the second line is the \textbf{adjoint equation}; once $\lambda$ is solved, gradients with respect to $w$ follow directly.
+\end{frame}
+
+
+
+\begin{frame}{Case I: Bilevel or optimisation-defined layers}
+    A layer may be the solution map of an inner optimisation problem \citep{holler2018bilevel, crockett2022bilevel}:
+    \begin{align*}
+        z^\star(w,x) \in \argmin_{z} E(z,w;x),
+        \qquad
+        \mathcal{L}(w)=\ell(z^\star(w,x),y).
+    \end{align*}
+
+    \textbf{Constraint identification:} The inner optimality condition is exactly $\mathcal{G}=0$:
+    \begin{align*}
+        \mathcal{G}(z,w,x) := \nabla_z E(z,w;x), \qquad \partial_z\mathcal{G} = \nabla_{zz}^2 E, \quad \partial_w\mathcal{G} = \nabla_{wz}^2 E.
+    \end{align*}
+
+    The adjoint equation $\nabla_z\ell + (\partial_z\mathcal{G})^\top\lambda=0$ gives $\lambda = -(\nabla_{zz}^2E)^{-\top}\nabla_z\ell$, and the gradient rule $\nabla_w\mathcal{L}=(\partial_w\mathcal{G})^\top\lambda$ yields
+    \begin{align*}
+        \frac{\partial z^\star}{\partial w} = -(\nabla_{zz}^2E)^{-1}\nabla_{wz}^2E,
+    \end{align*}
+    giving hypergradients for bilevel learning without unrolling all inner iterations.
+\end{frame}
+
+\begin{frame}{Case II: Deep equilibrium and fixed-point layers}
+    In DEQ-style models \citep{bai2019deep, gilton2021deep}, the hidden state is defined by a fixed point:
+    \begin{align*}
+        z^\star = f_w(z^\star,x).
+    \end{align*}
+
+    \textbf{Constraint identification:}
+    \begin{align*}
+        \mathcal{G}(z,w,x) := f_w(z,x)-z, \qquad \partial_z\mathcal{G} = \partial_z f_w - I, \quad \partial_w\mathcal{G} = \partial_w f_w.
+    \end{align*}
+    The adjoint equation $\nabla_z\ell + (\partial_z\mathcal{G})^\top\lambda=0$ becomes the linear system
+    \begin{align*}
+        \left(I-\partial_z f_w(z^\star,x)^\top\right)v = \nabla_z\ell(z^\star,y),
+    \end{align*}
+    and the gradient rule $(\partial_w\mathcal{G})^\top\lambda=0$ gives
+    \begin{align*}
+        \nabla_w\mathcal{L}(w) = \left(\partial_w f_w(z^\star,x)\right)^\top v.
+    \end{align*}
+    This gives constant-memory training with respect to effective depth.
+\end{frame}
+
+\begin{frame}{Case III: Continuous networks and adjoint equations}
+    For continuous networks, the hidden state $z(t)$ evolves along an ODE:
+    \begin{align*}
+        \dot z(t)=\mathcal{F}(z(t),w(t)),
+        \qquad
+        z(0)=x \quad \text{(input)}.
+    \end{align*}
+
+    \textbf{Constraint identification:} $\mathcal{G}$ is the ODE residual (a functional operator on $[0,T]$):
+    \begin{align*}
+        \mathcal{G}[z,w](t) := \dot z(t) - \mathcal{F}(z(t),w(t)) = 0.
+    \end{align*}
+    The Lagrange multiplier $\lambda$ becomes a continuous adjoint state $p(t)$. The stationarity condition $\nabla_z\mathcal{L}=0$ yields the adjoint ODE
+    \begin{align*}
+        -\dot p(t)
+        =\left(\partial_z\mathcal{F}(z(t),w(t))\right)^*p(t)
+        +\nabla_z\mathcal{R}(z(t),w(t)),
+        \quad
+        p(T)=\nabla_z\mathcal{M}(z(T)),
+    \end{align*}
+    and $\nabla_w\mathcal{L}=0$ gives the parameter gradient. Backpropagation becomes an adjoint boundary-value computation in continuous time.
+\end{frame}
+
+\begin{frame}{Why this matters for the rest of the course}
+    We now have one conceptual pipeline:
+    \begin{enumerate}
+        \item Formulate the layer as a constraint $\mathcal{G}(z,w,x)=0$.
+        \item Derive the corresponding adjoint/implicit differentiation rule.
+        \item Compute parameter gradients from that rule.
+    \end{enumerate}
+
+    \vspace{0.5em}
+    This unifies
+    \begin{itemize}
+        \item classical backpropagation for explicit MLP/CNN layers,
+        \item bilevel and optimisation-defined layers,
+        \item DEQ fixed-point models,
+        \item continuous-depth and optimal-control formulations.
+    \end{itemize}
+\end{frame}
+
+
+
+%================================================================%
+\section{Advanced Architectures: ResNets and UNets}
+%================================================================%
+
+\begin{frame}{Vanishing Gradients \& Stability}
+    \begin{itemize}
+        \item \textbf{Problem:} In very deep networks, gradients involve products of many weight matrices and activation derivatives.
+        $$ \nabla_{x_0} \mathcal{L} \propto \prod_{l=1}^L W_l \cdot \sigma_l'(z_l) $$
+            \item \textbf{Result:} If singular values of $W_l$ are $< 1$, gradients decay exponentially to $0$. If $> 1$, they explode. Training becomes extremely difficult for standard architectures $> 20$ layers \citep{bengio1994learning, glorot2010understanding}.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Residual Networks (ResNets)}
+    \textbf{Solution:} Introduce a "Skip Connection" \citep{he2016deep}.
+    
+    Instead of learning $x_{l+1} = \mathcal{F}_w(x_l)$, we learn the \textbf{residual}:
+    $$ x_{l+1} = x_l + \mathcal{F}_w(x_l) $$
+    Here $\mathcal{F}_w$ is a parameterised block (e.g.\ two conv layers with the same notation as Case III).
+    
+    \begin{center}
+    \begin{tikzpicture}[node distance=2cm]
+        \node (in) {$x_l$};
+        \node[draw, rectangle, minimum width=2cm, minimum height=1cm, right=of in, align=center] (block) {Layers\\$\mathcal{F}_w$};
+        \node[circle, draw, right=of block] (sum) {$+$};
+        \node[right=of sum] (out) {$x_{l+1}$};
+        
+        \draw[->] (in) -- (block);
+        \draw[->] (block) -- (sum);
+        \draw[->] (sum) -- (out);
+        
+        % Skip connection
+        \draw[->] (in) to[out=90,in=90] node[midway, above] {Identity Skip Connection} (sum);
+    \end{tikzpicture}
+    \end{center}
+    
+    \textbf{Benefit:} Creates a "gradient super-highway", allowing gradients to flow unimpeded through the identity path.
+\end{frame}
+
+\begin{frame}{ResNets as Continuous Networks (Dynamical Systems View)}
+    The skip-connection update $x_{l+1} = x_l + h\,\mathcal{F}_w(x_l)$ is Euler's method applied to
+    $$ \dot z(t) = \mathcal{F}(z(t), w), \qquad z(0) = x \quad\text{(input)}, $$
+    which is exactly the ODE of Case III with step size $h$ and layer index $l \leftrightarrow t$.
+
+    \begin{theoremblock}{Dynamical Systems View \protect\citep{weinan2017proposal, haber2017stable, benning2019deep}}
+        A ResNet is a discretised continuous network solving an initial value problem. Learning is finding the vector field $\mathcal{F}$ (parametrised by $w$) that transports input data $z(0)=x$ to the correct output at terminal time $z(T)$.
+    \end{theoremblock}
+
+    In the continuous limit, gradients are computed via the adjoint ODE of Case III rather than discrete backpropagation through all layers.
+\end{frame}
+
+\begin{frame}{Encoder-Decoder Architectures and UNets}
+    Let $S$ be the number of scales. A UNet \citep{ronneberger2015u} defines $f_w : \mathcal{X} \to \mathcal{X}$ via three stages.
+
+    \textbf{Encoder} (contracting path): starting from $x_0 = x$, for $s = 0, \ldots, S-1$,
+    \vspace{-0.2cm}
+    \begin{align*}
+        e_s &= \mathcal{E}_s(x_s), \qquad x_{s+1} = \mathcal{P}_s(e_s),
+    \end{align*}
+    where $\mathcal{E}_s$ is a convolutional block and $\mathcal{P}_s$ applies $2\times$ spatial downsampling (e.g., max pooling).
+
+    \textbf{Decoder} (expanding path): starting from the bottleneck $d_S = \mathcal{E}_S(x_S)$, for $s = S-1, \ldots, 0$,
+    \vspace{-0.2cm}
+    \begin{align*}
+        d_s = \mathcal{D}_s\!\left(\operatorname{cat}(\mathcal{U}_s(d_{s+1}),\, e_s)\right),
+    \end{align*}
+    where $\mathcal{U}_s$ applies $2\times$ upsampling, $\mathcal{D}_s$ is a convolutional block, and $\operatorname{cat}$ denotes channel-wise concatenation.
+
+    \textbf{Output}: $f_w(x) = \mathcal{C}(d_0)$ via a final $1\!\times\!1$ convolution $\mathcal{C}$.
+
+    The skip connections $e_s \to d_s$ bypass the bottleneck, preserving high-frequency spatial detail that is irreversibly lost under downsampling.
+\end{frame}
+
+\begin{frame}{UNet Architecture Diagram}
+    \begin{center}
+    \resizebox{0.8\textwidth}{!}{
+    \begin{tikzpicture}[
+        box/.style={draw, thick, fill=uclblue!20, minimum width=1.2cm, align=center},
+        conv/.style={->, thick, solid},
+        pool/.style={->, thick, red},
+        up/.style={->, thick, uclblue},
+        skip/.style={->, thick, dashed, darkgreen}
+    ]
+        % Encoder
+        \node[box, minimum height=4cm] (e0) at (0, 0) {$e_0$};
+        \node[box, minimum height=3cm] (e1) at (2, -2.5) {$e_1$};
+        \node[box, minimum height=2cm] (e2) at (4, -5) {$e_2$};
+        
+        % Bottleneck
+        \node[box, minimum height=1.5cm, fill=red!20] (b) at (6, -7) {$e_3$};
+        
+        % Decoder
+        \node[box, minimum height=2cm] (d2) at (8, -5) {$d_2$};
+        \node[box, minimum height=3cm] (d1) at (10, -2.5) {$d_1$};
+        \node[box, minimum height=4cm] (d0) at (12, 0) {$d_0$};
+        
+        % Input / Output
+        \node[left=1.5cm of e0] (in) {$x$};
+        \node[right=1.5cm of d0] (out) {$f_w(x)$};
+        
+        \draw[conv] (in) -- node[above] {in} (e0);
+        \draw[conv] (d0) -- node[above] {out} (out);
+        
+        % Pooling (Contracting)
+        \draw[pool] (e0.south) |- node[pos=0.75, above, scale=0.8, text=red] {Pool} (e1.west);
+        \draw[pool] (e1.south) |- node[pos=0.75, above, scale=0.8, text=red] {Pool} (e2.west);
+        \draw[pool] (e2.south) |- node[pos=0.75, above, scale=0.8, text=red] {Pool} (b.west);
+        
+        % Upsampling (Expanding)
+        \draw[up] (b.east) -| node[pos=0.25, above, scale=0.8, text=uclblue] {Up} (d2.south);
+        \draw[up] (d2.east) -| node[pos=0.25, above, scale=0.8, text=uclblue] {Up} (d1.south);
+        \draw[up] (d1.east) -| node[pos=0.25, above, scale=0.8, text=uclblue] {Up} (d0.south);
+        
+        % Skip Connections
+        \draw[skip] (e0) -- node[above, scale=0.8, text=darkgreen] {Skip + Concat} (d0);
+        \draw[skip] (e1) -- node[above, scale=0.8, text=darkgreen] {Skip + Concat} (d1);
+        \draw[skip] (e2) -- node[above, scale=0.8, text=darkgreen] {Skip + Concat} (d2);
+        
+    \end{tikzpicture}
+    }
+    \end{center}
+\end{frame}
+
+%================================================================%
+\section{Direct Supervised Learning (End-to-End) \& Its Pitfalls}
+%================================================================%
+
+\begin{frame}{The Temptation of End-to-End Learning}
+    \only<1-2>{Neural networks excel at learning complex input--output mappings directly from data. It is tempting to apply this to \textbf{any} process, including inverse problems:
+    \begin{itemize}
+        \item Image denoising, superresolution, deblurring, phase retrieval, CT reconstruction, MRI reconstruction, \ldots
+    \end{itemize}}
+    
+    \onslide<2->
+    The idea is simple: given a forward model
+    \begin{align*}
+        Ax = y,
+    \end{align*}
+    where $A \in \mathbb{R}^{m \times n}$ is a known (forward) operator, $x \in \mathbb{R}^n$ is the object to recover, and $y \in \mathbb{R}^m$ is the observed noisy data, why not simply learn an approximation to the Moore--Penrose pseudo-inverse $A^\dagger$?
+    
+    \begin{block}{Moore--Penrose Pseudo-Inverse \protect\citep{ehn}}
+        For any matrix $A$, the Moore--Penrose inverse is defined as $$ A^\dagger y := \argmin_x \left\{ \| x \| \, \left| \,  x \in \argmin_{\tilde{x}} \|A\tilde{x} - y\|^2 \right. \right\} = \argmin_x \left\{ \| x \| \, \left| \,  A^\top A x = A^\top y \right. \right\} \, . $$ 
+        If $A$ has full column rank, $A^\dagger = (A^\top A)^{-1} A^\top$.
+    \end{block}
+\end{frame}
+
+\begin{frame}{End-to-End Learning for Inversion}
+    \textbf{Idea:} Train a neural network $f_w$ to map noisy observations directly to recovered objects \citep{arridge2019solving}:
+    \begin{align*}
+        \min_w \frac{1}{N} \sum_{i=1}^N \left\| f_w(y_i^\delta) - x_i^\dagger \right\|^2,
+    \end{align*}
+
+    \vspace{-0.15cm}
+    where $(y_i^\delta, x_i^\dagger)$ are training pairs (noisy data and ground truth solutions), and we hope $f_w \approx A^\dagger$.\pause
+    
+    \textbf{Attractions:}
+    \begin{enumerate}
+        \item \textbf{Simplicity:} No inverse problem theory required; just standard supervised learning.
+        \item \textbf{Speed:} Single forward pass at inference; no iterative solves needed.
+        \item \textbf{Empirical Performance:} Often achieves high PSNR/SSIM scores on restricted test sets matching the training distribution.
+    \end{enumerate}
+    
+    \pause
+    \begin{center}
+        \textbf{However, direct end-to-end inversion is fundamentally fragile and can fail catastrophically.}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Pitfall 1: Lack of Data Consistency}
+    The network output $\hat x = f_w(y^\delta)$ is a prediction learned from noisy training data. It is \textbf{not constrained} to satisfy the forward model.
+    
+    \begin{alertblock}{Forward Model is Ignored}
+        There is \textbf{no guarantee} that $A \hat x_i = y_i$, where $y_i = A x^\dagger_i$.
+    \end{alertblock}
+    
+    \begin{itemize}
+        \item The network may generate a visually plausible image that violates the forward model, i.e. $\|A \hat x - y^\delta\|^2$ can be arbitrarily large.
+        \item \textbf{Consequence:} In medical imaging, the network might remove a small tumour (treating it as noise) or hallucinate healthy tissue where abnormalities exist, since the training loss never enforces consistency with $y^\delta$.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Pitfall 2: The Lipschitz Dilemma \& Adversarial Vulnerability}
+    \textbf{Mathematical Reality:} For matrices $A$ with fast decaying singular values, $A^\dagger$ is \emph{ill-conditioned}; small changes in $y$ can cause arbitrarily large changes in $A^\dagger y$.
+    
+    \textbf{Network Limitation:} Neural networks are continuous functions with a finite Lipschitz constant $L$, i.e.,
+    $$\|f_w(y^\delta + \eta) - f_w(y^\delta)\| \leq L \|\eta\| \, . $$
+    
+    \textbf{The Conflict:} To approximate a highly ill-conditioned operator $A^\dagger$ on the training set, the network is forced to learn an astronomically large Lipschitz constant $L$. While it may perform well on the training data manifold, this massive $L$ creates vulnerabilities off the manifold.
+    
+    \pause
+    \vspace{0.5em}
+    \begin{alertblock}{Adversarial Instability \protect\citep{antun2020instabilities}}
+        Because $L$ is so large, a worst-case perturbation $\eta$ with tiny $\|\eta\|$ can cause $\|f_w(y^\delta + \eta) - f_w(y^\delta)\|$ to be enormous, producing severe reconstruction artefacts.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Pitfall 3: The "Opaque" Implicit Bias}
+    \textbf{Classical Mathematical Methods:} The assumptions about the solution are explicit. We define exactly what properties we expect a recovered object to have (e.g., piece-wise smoothness or sharp edges).
+    
+    \textbf{End-to-End Learning:} The assumptions are implicit and hidden. They are determined solely by the statistics of the training data.
+    
+    \begin{itemize}
+        \item The network learns to fill in the null space of $A$ (the space where $Av = 0$) using whatever patterns it observed in training. This is \emph{memorisation}.
+        \item \textbf{Generalisation Failure:} When a test case contains a rare or unseen feature (e.g., an atypical tumour morphology), the network has never learned a representation for it. Instead, it hallucinates a "typical" feature based on its training bias, replacing the truth.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary of Dangers: Classical Methods vs. Deep Learning}
+    \begin{table}
+        \centering
+        \begin{tabular}{l|c|c}
+             & \textbf{Classical Methods} & \textbf{Deep Learning (End-to-End)} \\
+             \hline
+             \textbf{Data Consistency} & Guaranteed ($Ax \approx y$) & Not Guaranteed \\
+             \textbf{Stability} & Mathematically bounded & Unstable (High Lipschitz needed) \\
+             \textbf{Assumptions} & Explicit (Hand-crafted) & Opaque (Training data distribution) \\
+             \textbf{Image Quality} & Limited (Oversimplified) & High (Realistic textures) \\
+        \end{tabular}
+    \end{table}
+    
+    \vspace{1em}
+    \textbf{Goal for the Course:} Learn to combine the reliability of mathematical forward models with the expressivity of deep learning. We will explore topics such as unrolled networks, implicit deep learning, and advanced generative models.
+\end{frame}
+
+\begin{frame}{Summary \& Preparation for the Coding Challenge}
+    \textbf{Review:} From perceptrons to the pitfalls of black-box inversion, ending with continuous and implicit models.
+    
+    \vspace{1em}
+    \textbf{Coding Challenge:}
+    \begin{itemize}
+        \item Recovering sharp images from degraded measurements using PyTorch/DeepInverse.
+        \item Baseline: Simple mathematical inversion.
+        \item Constraints: Max 100 MB model size, CPU inference $< 20$ mins.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+    \bibliographystyle{plainnat}
+    \bibliography{../Lecture_Notes/references}
+\end{frame}
+
+\end{document}

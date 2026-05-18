@@ -1,0 +1,325 @@
+% Ensure included PDFs (banners) with newer versions embed without warnings
+\pdfminorversion=7
+\documentclass[aspectratio=169]{beamer}
+
+\makeatletter
+% Make LaTeX find theme .sty files in Template
+\def\input@path{{Template/}}
+\makeatother
+\usepackage{graphicx}
+% Make graphics (including banner PDFs) resolvable without TEXINPUTS
+\graphicspath{{Template/}{Template/banners/}{../Common_Images/}}
+
+%================================================================%
+% Theme and Package Setup
+%================================================================%
+\usetheme{ucl}
+\setbeamercolor{banner}{bg=darkpurple}
+
+% Navigation and Footer
+\setbeamertemplate{navigation symbols}{\vspace{-2ex}}
+\setbeamertemplate{footline}[author title date]
+\setbeamertemplate{slide counter}[framenumber/totalframenumber]
+
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usetikzlibrary{calc, positioning, arrows.meta, shapes.geometric, trees, backgrounds, shapes.misc, graphs, quotes, shadows, fit, decorations.pathreplacing} 
+\usefonttheme{professionalfonts}
+\usepackage{eulervm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[square,authoryear]{natbib}
+
+% Define custom colours
+\makeatletter
+\@ifundefined{color@stone}{%
+    \definecolor{stone}{gray}{0.95}%
+}{}
+\makeatother
+\definecolor{darkgreen}{rgb}{0.0, 0.5, 0.0}
+\definecolor{uclblue}{cmyk}{1,0.24,0,0.64}
+
+\setbeamercovered{transparent}
+
+% Define theoremblock
+\makeatletter
+\newenvironment<>{theoremblock}[1]{%
+    \begin{block}#2{#1}%
+}{\end{block}}
+\makeatother
+
+% Section divider slides
+\AtBeginSection[]{
+  \begin{frame}
+    \frametitle{\textbf{\Large\insertsectionhead}}
+    \begin{center}
+        \huge\textbf{\insertsectionhead}
+    \end{center}
+  \end{frame}
+}
+
+% Operator definitions
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\prox}{prox}
+\DeclareMathOperator{\proj}{proj}
+\DeclareMathOperator{\divg}{div}
+
+\title{Deblurring Challenge}
+\subtitle{Restoring Images from Randomised Motion Blur}
+\author[Martin Benning (University College London)]{Martin Benning}
+\date[CCMI]{CCMI -- Deep Learning in Theory and Practice \\[1cm] Monday, 18 May 2026}
+\institute[]{University College London}
+
+\begin{document}
+
+% --- Title Frame ---
+\begin{frame}
+  \titlepage
+\end{frame}
+
+%================================================================%
+\section{The Deblurring Challenge}
+%================================================================%
+
+\begin{frame}{Overview of the Challenge}
+    \textbf{The Task:} Develop a data-driven model to restore high-quality images from degraded measurements suffering from \textbf{randomised motion blur} and \textbf{noise}.
+    
+    \vspace{1em}
+    \begin{columns}[T]
+        \column{0.5\textwidth}
+        \textbf{Key Details:}
+        \begin{itemize}
+            \item \textbf{Tools:} PyTorch and the DeepInverse (`deepinv`) library.
+            \item \textbf{Evaluation:} Hidden test set (PSNR and SSIM).
+            \item \textbf{Format:} Friendly competition among PhD student groups via an automated GitHub Actions leaderboard.
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \begin{block}{The Forward Model}
+            We observe
+            $$ y^\delta = A x^\dagger + \eta $$
+            where $A$ represents a convolution with motion blur kernel, and $\eta$ is measurement noise.
+        \end{block}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Data Generation \& Training Strategy}
+    To train your data-driven models, you will need sharp ground-truth images to generate synthetic degraded data.
+
+    \begin{itemize}
+        \item \textbf{Datasets:} Use `torchvision` (e.g., Food101, Flowers102) or DeepInverse datasets (e.g., BSDS500, DIV2K) as your source of sharp images.
+        \item \textbf{Synthetic Degradation:} Apply randomised motion blur operators and noise using `deepinv`.
+        \begin{itemize}
+            \item \textit{Tip:} Blur a large image segment \emph{before} extracting patches to handle boundary conditions correctly.
+        \end{itemize}
+        \item \textbf{Training Strategy:} Train on small patches (e.g., $128 \times 128$ or $256 \times 256$) to improve efficiency and allow the network to generalise to arbitrary resolutions during inference.
+    \end{itemize}
+\end{frame}
+
+%================================================================%
+\section{The Mathematical Baseline}
+%================================================================%
+
+\begin{frame}{Why do we need a Baseline?}
+    Before unleashing a deep neural network on an inverse problem, it is critical to understand the classical mathematical approach. This provides a performance lower-bound and ensures our data-driven model is actually learning something useful.
+    
+    \vspace{0.5em}
+    For the baseline, we solve the inverse problem $Ax = y^\delta$ using a \textbf{Variational Method}. We formulate an optimisation problem:
+    \begin{align*}
+        \hat{x} = \argmin_x \left\{ \frac{1}{2} \| Ax - y^\delta \|^2 + \alpha R(x) \right\}
+    \end{align*}
+    \begin{itemize}
+        \item \textbf{Data Fidelity:} $\frac{1}{2} \| Ax - y^\delta \|^2$ ensures the solution matches the measurements.
+        \item \textbf{Regularisation:} $R(x)$ enforces prior knowledge, stabilising the inversion. $\alpha > 0$ balances the two.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Total Variation (TV) Regularisation}
+    A powerful and classical choice for imaging is \textbf{Total Variation (TV)}, giving rise to the ROF (Rudin, Osher, Fatemi) model.
+    
+    \begin{block}{Discrete Total Variation}
+        For a 2D image $x$, the isotropic Total Variation is the $\ell_1$-norm of the gradient magnitudes:
+        \begin{align*}
+            TV(x) = \sum_{i,j} \sqrt{ (\nabla_h x)_{i,j}^2 + (\nabla_v x)_{i,j}^2 }
+        \end{align*}
+        where $\nabla_h$ and $\nabla_v$ are horizontal and vertical finite differences.
+    \end{block}
+    
+    \textbf{Why TV?} It heavily penalises noise and oscillations, but \emph{preserves sharp edges} (unlike $\ell_2$ smoothness priors which blur edges).
+\end{frame}
+
+\begin{frame}{Solving the Baseline: The Condat-Vu Algorithm}
+    The objective function is
+    \begin{align*}
+        \min_x \underbrace{\frac{1}{2} \| Ax - y^\delta \|^2}_{\text{Smooth (Gradient desc.)}} + \underbrace{\alpha TV(x)}_{\text{Non-smooth (Proximal operator)}}
+    \end{align*}
+    Because $TV(x)$ involves a linear operator ($\nabla$) inside a non-smooth norm, standard gradient descent fails.
+    
+    \vspace{0.5em}
+    Instead, we use \textbf{Primal-Dual Splitting} (PDHG/Chambolle--Pock), specifically the \textbf{Condat-V\~u extension} \citep{Pock2009PDHG, Chambolle2011PDHG, condat2013primal, vu2013splitting}. It splits the problem into:
+    \begin{enumerate}
+        \item A primal gradient step on the data fidelity.
+        \item A dual proximal step on the regularisation.
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Condat-Vu Iterations for Deblurring}
+    Let $p$ be a dual variable (a vector field corresponding to the image gradients). We alternate updates with step sizes $\tau$ (primal) and $\sigma$ (dual):
+    
+    \begin{theoremblock}{Algorithm Steps}
+        For $k = 0, 1, 2, \dots$ until convergence:
+        \begin{align*}
+            1.\; \tilde{x}^{k+1} &= x^k - \tau A^\top(A x^k - y^\delta) + \tau \operatorname{div}(p^k) \\
+            2.\; x^{k+1} &= \operatorname{proj}_{[0, 1]}(\tilde{x}^{k+1}) \quad \text{\footnotesize(Optional: constrain to valid pixel range)} \\
+            3.\; p^{k+1} &= \operatorname{proj}_{B_\alpha}\left( p^k + \sigma \nabla (2 x^{k+1} - x^k) \right)
+        \end{align*}
+    \end{theoremblock}
+    
+    \begin{itemize}
+        \item $\operatorname{div} = -\nabla^\top$ is the discrete divergence operator.
+        \item $\operatorname{proj}_{B_\alpha}$ projects the dual variable pointwise onto an $\ell_2$-ball of radius $\alpha$.
+        \item \textbf{Convergence condition:} $\tau \left( \frac{\|A\|^2}{2} + \sigma \|\nabla\|^2 \right) \leq 1$.
+    \end{itemize}
+\end{frame}
+
+%================================================================%
+\section{Rules, Constraints \& Logistics}
+%================================================================%
+
+\begin{frame}{Registration \& Leaderboard}
+    \textbf{GitHub Classroom Sign-up:}
+    \begin{itemize}
+        \item Join the assignment via this link: \url{https://classroom.github.com/a/dy4H1JHT}
+        \item Sign up in groups of \textbf{ideally 3} (or 2 if necessary). Note that a maximum of 7 teams is allowed in total.
+        \item Come up with a \textbf{unique team name} that clearly identifies your group.
+        \item The first team member to sign up creates the team and sets the name; the remaining members simply join that established team.
+    \end{itemize}
+    
+    \vspace{1em}
+    \textbf{Tracking Progress:}
+    \begin{itemize}
+        \item There will be a live leaderboard to keep track of everyone's progress on the hidden test set.
+        \item The leaderboard can be found at: \url{https://deep-learning-theory-practice-2026.github.io/Coding-Challenge-Leaderboard/}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Repository Structure}
+    \begin{columns}
+        \column{0.45\textwidth}
+        \begin{lstlisting}[basicstyle=\tiny\ttfamily, language=bash]
+.
+|-- .github
+|   |-- scripts
+|   |   |-- grade.py 
+|   |   `-- unpack_pt.py
+|   `-- workflows
+|       `-- grading.yml
+|-- data/
+|-- model_weights/
+|   `-- model_weights.pth
+|-- environment.yml
+|-- model.py
+|-- predict.py
+|-- requirements.txt
+`-- README.md
+        \end{lstlisting}
+        
+        \column{0.55\textwidth}
+        \textbf{What you need to edit:}
+        \begin{itemize}
+            \item \texttt{model.py}: Define your PyTorch network architecture here.
+            \item \texttt{predict.py}: Implement the inference logic (loading the image, applying the model, saving the output).
+            \item \texttt{requirements.txt}: Add any extra Python libraries required for inference.
+            \item \texttt{model\_weights.pth}: Upload your trained model weights.
+        \end{itemize}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Constraints \& Requirements}
+    \begin{alertblock}{Strict Rules for the Auto-Grader}
+        \begin{itemize}
+            \item \textbf{Model Size:} The \texttt{model\_weights/} directory must be $\le$ \textbf{100 MB}.
+            \item \textbf{Compute Limits:} Inference is evaluated on CPU only. Your pipeline must process the entire hidden test set in under \textbf{20 minutes}.
+            \item \textbf{Dynamic Sizing:} Avoid hardcoding dimensions! Your network must handle variable input image sizes.
+        \end{itemize}
+    \end{alertblock}
+    
+    \vspace{0.5em}
+    \textbf{Important Warnings:}
+    \begin{itemize}
+        \item Do \textbf{NOT} modify any files in the \texttt{.github/} directory.
+        \item Do \textbf{NOT} alter the command-line arguments (argparser) in \texttt{predict.py}. The auto-grader depends on them.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Testing and Submission Workflow}
+    \begin{center}
+    \begin{tikzpicture}[
+        box/.style={draw, thick, fill=uclblue!20, minimum width=2.5cm, minimum height=1cm, align=center, rounded corners},
+        arr/.style={->, thick, >=latex}
+    ]
+        \node[box] (train) at (0,0) {1. Train Locally};
+        \node[box] (test) at (4,0) {2. Test \texttt{predict.py}};
+        \node[box] (push) at (8,0) {3. Push to \texttt{main}};
+        \node[box, fill=darkgreen!20, minimum height=1.5cm] (grade) at (8,-2.5) {4. GitHub Action\\Evaluates \& Scores};
+        
+        \draw[arr] (train) -- (test);
+        \draw[arr] (test) -- (push);
+        \draw[arr] (push) -- (grade);
+    \end{tikzpicture}
+    \end{center}
+    
+    \vspace{0.5em}
+    \textbf{Local Testing:}
+    We provided \texttt{data/test\_dataset.pt}. Test your setup via:
+    \texttt{python predict.py --input data/test\_dataset.pt --output sub\_out}
+
+    \vspace{0.5em}
+    \textbf{Git Etiquette:} The grading pipeline runs automatically on pushes to \texttt{main}. Please avoid pushing every single typo. Only push when you have a significant update or a new model version to test on the leaderboard.
+\end{frame}
+
+\begin{frame}{Friday Presentations}
+    \textbf{Presentation Format:}
+    \begin{itemize}
+        \item Each group will present their approach and results on Friday.
+        \item \textbf{Duration:} 30 minutes per group.
+        \begin{itemize}
+            \item $\sim$20 minutes for the presentation.
+            \item 5 minutes for Q\&A.
+            \item 5 minutes extra time to switch between presenting teams.
+        \end{itemize}
+    \end{itemize}
+    
+    \vspace{1em}
+    \textbf{Schedule Blocks:}
+    \begin{itemize}
+        \item \textbf{First Block:} 11:00 -- 13:00
+        \item \textbf{Second Block:} 14:00 -- 16:00
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+    \begin{itemize}
+        \item \textbf{The Task:} Deblur images using Deep Learning.
+        \item \textbf{The Baseline:} Total Variation regularisation solved via Condat-Vu primal-dual splitting.
+        \item \textbf{The Goal:} Beat the baseline using PyTorch and \texttt{deepinv}, while respecting the 10 MB and CPU runtime constraints.
+    \end{itemize}
+    
+    \vspace{1.5em}
+    \begin{center}
+        \Large \textbf{Good luck, and happy coding!}
+    \end{center}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+    \bibliographystyle{plainnat}
+    \bibliography{../Lecture_Notes/references}
+\end{frame}
+
+\end{document}
