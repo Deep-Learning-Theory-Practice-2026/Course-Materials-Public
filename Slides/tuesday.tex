@@ -222,12 +222,12 @@
 \end{frame}
 
 \begin{frame}{Null-Space Networks}
-    A \textbf{Null-Space Network} isolates the data-driven model entirely within the null space of the operator $A$.
+    A \textbf{Null-Space Network} \citep{schwab2019deep, schwab2020big, boink2022data} isolates the data-driven model entirely within the null space of the operator $A$.
     
     \begin{theoremblock}{Null-Space Architecture}
         Let $x_0 = A^\dagger y$ be the pseudo-inverse solution. The network prediction takes the form\vspace{-0.15cm}
         \begin{align*}
-            f_\theta(y^\delta) = x_0 + (I - A^\dagger A) \mathcal{H}_\theta(x_0)
+            f_\theta(y) = x_0 + (I - A^\dagger A) \mathcal{H}_\theta(x_0)
         \end{align*}
 
         \vspace{-0.15cm}
@@ -265,17 +265,18 @@
 \end{frame}
 
 \begin{frame}{Proof of Strict Data Consistency}
-    The network is mathematically guaranteed to be data consistent (in the absence of noise). We apply the forward operator $A$ to the network's output to observe
+    The network is mathematically guaranteed to be data consistent (if the data is in the range of $A$). We apply the forward operator $A$ to the network's output to observe
     
     \begin{align*}
-        A f_\theta(y) &= A \left( A^\dagger y^\delta + (I - A^\dagger A) \mathcal{H}_\theta(x_0) \right) \, , \\
-        &= A A^\dagger y^\delta + A(I - A^\dagger A) \mathcal{H}_\theta(x_0) \, , \\
-        &= y + (A - A A^\dagger A) \mathcal{H}_\theta(x_0) \, .
+        A f_\theta(y) &= A \left( A^\dagger y + (I - A^\dagger A) \mathcal{H}_\theta(x_0) \right) \, , \\
+        &= A A^\dagger y + A(I - A^\dagger A) \mathcal{H}_\theta(x_0) \, , \\
+        &= A A^\dagger y + (A - A A^\dagger A) \mathcal{H}_\theta(x_0) \, .
     \end{align*}
     By the properties of the pseudo-inverse, $A A^\dagger A = A$. Therefore, we have
     \begin{align*}
-        A f_\theta(y) = y + (A - A) \mathcal{H}_\theta(x_0) = y \, .
+        A f_\theta(y) = A A^\dagger y + (A - A) \mathcal{H}_\theta(x_0) = A A^\dagger y \, .
     \end{align*}
+    Since $A A^\dagger$ is the orthogonal projection onto the range of $A$, this yields $A f_\theta(y^\delta) = y$ if $y \in \mathcal{R}(A)$.
 \end{frame}
 
 \begin{frame}{Properties of Null-Space Networks}
