@@ -209,13 +209,13 @@
     \end{columns}
 \end{frame}
 
-\begin{frame}{Solving decision problems}
-    \begin{itemize}
-        \item Explain how to model decision problems
-        \item Include concert example
-        \item Model with Heaviside function 
-    \end{itemize}
-\end{frame}
+% \begin{frame}{Solving decision problems}
+%     \begin{itemize}
+%         \item Explain how to model decision problems
+%         \item Include concert example
+%         \item Model with Heaviside function 
+%     \end{itemize}
+% \end{frame}
 
 \begin{frame}{Activation Functions}
     The power of neural networks comes from \textbf{non-linearity}. Without $\sigma$, a deep network is just a single linear matrix multiplication.
@@ -354,6 +354,10 @@
         
         \footnotesize{Maps a vector into a probability distribution.}
     \end{columns}
+
+    \vspace{0.15cm}
+    \centering
+    And many more...
 \end{frame}
 
 \begin{frame}{The Perceptron and the XOR Problem}
@@ -379,7 +383,7 @@
 \end{frame}
 
 \begin{frame}{Shallow Neural Networks}
-    To solve XOR, we add a \textbf{hidden layer}.\vspace{-0.1cm}
+    \only<1-2>{To solve XOR, we add a \textbf{hidden layer}.\vspace{-0.1cm}}
     
     \begin{definition}[Shallow Network]
         $$ f_w(x) = \sum_{j = 1}^J c_j \, \sigma(w_j^\top \, x + b_j) $$
@@ -391,7 +395,7 @@
     \end{theoremblock}\pause
     
     \vspace{-0.1cm}
-    \textbf{Why Deep?} Shallow networks are inefficient. Representing complex functions might require exponentially many neurons in one layer. Depth allows for \textbf{hierarchical features}.
+    \only<3->{\textbf{Why Deep?} Shallow networks are inefficient. Representing complex functions might require exponentially many neurons in one layer. Depth allows for \textbf{hierarchical features}.}
 \end{frame}
 
 \begin{frame}{Multi-Layer Perceptrons (MLP)}
@@ -474,7 +478,7 @@
     
     \textbf{Mathematical Definition:} for a single-channel 2D image $x \in \mathbb{R}^{H \times W}$ and kernel $k \in \mathbb{R}^{m \times n}$, the discrete convolution is defined as
     \begin{align*}
-        (x * k)[i,j] := \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k[u,v] \; x[i+u, j+v] \, ,
+        (x * k)[i,j] := \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k[u,v] \; x[i-u, j-v] \, ,
     \end{align*}
     where $[i,j]$ indexes the output location, and $k[u,v]$ are the kernel weights.
 
@@ -484,7 +488,7 @@
 \begin{frame}{Discrete convolutions}
     \textbf{Multi-channel case:} For $C$ input channels and $C'$ output channels, the convolutional layer computes
     \begin{align*}
-        y_{c'}[i,j] := \sum_{c=1}^C \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k_{c',c}[u,v] \; x_c[i+u, j+v] + b_{c'}
+        y_{c'}[i,j] := \sum_{c=1}^C \sum_{u=0}^{m-1} \sum_{v=0}^{n-1} k_{c',c}[u,v] \; x_c[i-u, j-v] + b_{c'}
     \end{align*}
     where $k_{c',c}$ is the kernel for output channel $c'$ and input channel $c$, and $b_{c'}$ is a bias term.
 
@@ -493,6 +497,22 @@
         \item Drastic reduction in parameter count: $m \times n \times C \times C'$ instead of $HWC \times C'$.
         \item \textbf{Translation equivariance:} The same kernel is applied at every spatial location.
         \item Discrete convolution is a linear operator, and a special case of a matrix $W_l$ in MLPs.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Convolution vs. Cross-Correlation in Practice}
+    \textbf{Theory vs. Implementation:}
+    \begin{itemize}
+        \item The strict mathematical definition of convolution uses subtraction ($i-u, j-v$), which implicitly ``flips'' the kernel horizontally and vertically.
+        \item Deep learning frameworks (e.g., PyTorch, TensorFlow) actually implement \textbf{discrete cross-correlation}, which uses addition ($i+u, j+v$) and does not flip the kernel.
+    \end{itemize}
+    
+    \vspace{0.5em}
+    \textbf{Why omit the flip?}
+    \begin{itemize}
+        \item Cross-correlation is mathematically equivalent to a convolution with a flipped (transposed) kernel.
+        \item Since the kernel weights $k$ are initialized randomly and learned from the data during training, learning a flipped kernel is functionally identical to learning the original kernel. 
+        \item Omitting the flip operation simplifies the implementation and the mental model (a sliding window computing dot products) without sacrificing any representational power.
     \end{itemize}
 \end{frame}
 
@@ -549,7 +569,7 @@
 
     \vspace{0.5em}
     
-    \textbf{Loss Functions:}
+    \textbf{Example Loss Functions:}
     \begin{itemize}
         \item Mean Squared Error (MSE): $\frac{1}{2}\| \hat{y} - y \|^2$ (Regression / Inverse Problems).
         \item Cross-Entropy Loss: $-\sum y_k \log(\hat{y}_k)$ (Classification).
@@ -915,7 +935,7 @@
 
     \vspace{0.5em}
     \begin{alertblock}{Theory vs practice}
-        Adam is highly effective in deep learning practice, but classical convergence guarantees can fail without additional assumptions or modifications. A common robust variant is AdamW, which decouples weight decay from the adaptive step.
+        Adam is highly effective in deep learning practice, but classical convergence guarantees can fail without additional assumptions or modifications. A common robust variant is AdamW, which adds weight decay (Tikhonov regularisation) to the objective.
     \end{alertblock}
 \end{frame}
 
@@ -937,14 +957,14 @@
     \textbf{Placement:} After a layer's activation, typically at each hidden layer. Each neuron is independently dropped with probability $(1-q)$.
 
     \vspace{0.25em}
-    During training, randomly zero out a fraction $(1-q)$ of activations using a Bernoulli mask:
+    During training, randomly zero out a fraction $(1-q)$ of activations using a Bernoulli mask, i.e.,
     \begin{align*}
         m_j \sim \mathrm{Bernoulli}(q), \qquad j = 1, \ldots, d,
     \end{align*}
     where $q \in (0,1]$ is the \textbf{keep probability} (typical: $q = 0.5$).
 
     \vspace{0.25em}
-    \textbf{Inverted dropout} (modern standard) rescales activations:
+    \textbf{Inverted dropout} (modern standard) rescales activations, i.e.,
     \begin{align*}
         \tilde h = \frac{1}{q}\left( m \odot h \right) .
     \end{align*}
@@ -958,22 +978,22 @@
     \textbf{Ensemble perspective:} Dropout creates an ensemble of $2^d$ sub-networks (one per binary mask). Inference approximates their average prediction, reducing variance.
 
     \vspace{0.5em}
-    \textbf{Regularisation perspective:} The stochastic perturbations encourage the network to learn redundant, robust features and prevent co-adaptation—where neurons become specialised to specific partners in training data.
+    \textbf{Regularisation perspective:} The stochastic perturbations encourage the network to learn redundant, robust features and prevent co-adaptation — where neurons become specialised to specific partners in training data.
 
     \vspace{0.5em}
     \textbf{Effect on optimisation:} By reducing overfitting, dropout improves generalisation to unseen data. The noise also provides implicit regularisation during SGD, helping escape sharp local minima.
 \end{frame}
 
 \begin{frame}{Batch normalisation in practice}
-    \textbf{Placement:} Applied to pre-activations $z$ (before the nonlinearity) within a hidden layer. Typical architecture: Dense $\to$ Batch Norm $\to$ Nonlinearity $\to$ Dropout.
+    \only<1>{\textbf{Placement:} Applied to pre-activations $z$ (before the nonlinearity) within a hidden layer. Typical architecture: Dense $\to$ Batch Norm $\to$ Nonlinearity $\to$ Dropout.}
 
     \vspace{0.25em}
-    For each feature/channel, compute mini-batch statistics:
+    For each feature/channel, compute mini-batch statistics of the form
     \begin{align*}
         \mu_{\mathcal{B}} &= \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} z_i, \\[0.1em]
         \sigma_{\mathcal{B}}^2 &= \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \left( z_i - \mu_{\mathcal{B}} \right)^2 .
-    \end{align*}
-    Then normalise and apply learnable affine parameters:
+    \end{align*}\pause
+    Then normalise and apply learnable affine parameters, i.e.,
     \begin{align*}
         \hat z_i &= \frac{z_i - \mu_{\mathcal{B}}}{\sqrt{\sigma_{\mathcal{B}}^2 + \varepsilon}}, \\[0.1em]
         y_i &= \gamma \, \hat z_i + \beta .
@@ -985,7 +1005,7 @@
     \textbf{Training:} Use mini-batch statistics $\mu_{\mathcal{B}}$, $\sigma_{\mathcal{B}}^2$.
 
     \vspace{0.5em}
-    \textbf{Inference:} Mini-batches are unavailable (single sample or fixed batch). Instead, use \emph{running averages} accumulated during training via exponential moving average (EMA):
+    \textbf{Inference:} Mini-batches are unavailable (single sample or fixed batch). Instead, use \emph{running averages} accumulated during training via exponential moving average (EMA), i.e.,
     \begin{align*}
         \mu_{\text{running}} &\gets (1-\alpha) \mu_{\text{running}} + \alpha \, \mu_{\mathcal{B}}, \\[0.1em]
         \sigma^2_{\text{running}} &\gets (1-\alpha) \sigma^2_{\text{running}} + \alpha \, \sigma_{\mathcal{B}}^2,
@@ -1271,14 +1291,12 @@
 \end{frame}
 
 \begin{frame}{Residual Networks (ResNets)}
-    \textbf{Solution:} Introduce a "Skip Connection" \citep{he2016deep}.
-    
-    Instead of learning $x_{l+1} = \mathcal{F}_w(x_l)$, we learn the \textbf{residual}:
+    \textbf{Solution:} Introduce a "Skip Connection" \citep{he2016deep}. Instead of learning $x_{l+1} = \mathcal{F}_w(x_l)$, we learn the \textbf{residual}:
     $$ x_{l+1} = x_l + \mathcal{F}_w(x_l) $$
     Here $\mathcal{F}_w$ is a parameterised block (e.g.\ two conv layers with the same notation as Case III).
     
     \begin{center}
-    \begin{tikzpicture}[node distance=2cm]
+    \begin{tikzpicture}[scale=0.8, transform shape, node distance=2cm]
         \node (in) {$x_l$};
         \node[draw, rectangle, minimum width=2cm, minimum height=1cm, right=of in, align=center] (block) {Layers\\$\mathcal{F}_w$};
         \node[circle, draw, right=of block] (sum) {$+$};
@@ -1327,7 +1345,7 @@
 
     \textbf{Output}: $f_w(x) = \mathcal{C}(d_0)$ via a final $1\!\times\!1$ convolution $\mathcal{C}$.
 
-    The skip connections $e_s \to d_s$ bypass the bottleneck, preserving high-frequency spatial detail that is irreversibly lost under downsampling.
+    The skip connections $e_s \to d_s$ bypass the bottleneck, preserving high-frequency spatial detail that is otherwise lost under downsampling.
 \end{frame}
 
 \begin{frame}{UNet Architecture Diagram}
@@ -1397,10 +1415,10 @@
     \end{align*}
     where $A \in \mathbb{R}^{m \times n}$ is a known (forward) operator, $x \in \mathbb{R}^n$ is the object to recover, and $y \in \mathbb{R}^m$ is the observed noisy data, why not simply learn an approximation to the Moore--Penrose pseudo-inverse $A^\dagger$?
     
-    \begin{block}{Moore--Penrose Pseudo-Inverse \protect\citep{ehn}}
+    \only<3->{\begin{block}{Moore--Penrose Pseudo-Inverse \protect\citep{ehn}}
         For any matrix $A$, the Moore--Penrose inverse is defined as $$ A^\dagger y := \argmin_x \left\{ \| x \| \, \left| \,  x \in \argmin_{\tilde{x}} \|A\tilde{x} - y\|^2 \right. \right\} = \argmin_x \left\{ \| x \| \, \left| \,  A^\top A x = A^\top y \right. \right\} \, . $$ 
         If $A$ has full column rank, $A^\dagger = (A^\top A)^{-1} A^\top$.
-    \end{block}
+    \end{block}}
 \end{frame}
 
 \begin{frame}{End-to-End Learning for Inversion}
@@ -1495,7 +1513,7 @@
 
 \begin{frame}[allowframebreaks]{References}
     \bibliographystyle{plainnat}
-    \bibliography{../Lecture_Notes/references}
+    \bibliography{references}
 \end{frame}
 
 \end{document}
