@@ -170,7 +170,7 @@
 \end{frame}
 
 \begin{frame}{Condat-Vu Iterations for Deblurring}
-    Let $p$ be a dual variable (a vector field corresponding to the image gradients). We alternate updates with step sizes $\tau$ (primal) and $\sigma$ (dual):
+    \only<1-2>{Let $p$ be a dual variable (a vector field corresponding to the image gradients). We alternate updates with step sizes $\tau$ (primal) and $\sigma$ (dual):}
     
     \begin{theoremblock}{Algorithm Steps}
         For $k = 0, 1, 2, \dots$ until convergence:
@@ -182,9 +182,9 @@
     \end{theoremblock}
     
     \begin{itemize}
-        \item $\operatorname{div} = -\nabla^\top$ is the discrete divergence operator.
-        \item $\operatorname{proj}_{B_\alpha}$ projects the dual variable pointwise onto an $\ell_2$-ball of radius $\alpha$.
-        \item \textbf{Convergence condition:} $\tau \left( \frac{\|A\|^2}{2} + \sigma \|\nabla\|^2 \right) \leq 1$.
+        \item<1-> $\operatorname{div} = -\nabla^\top$ is the discrete divergence operator.
+        \item<2-> $\operatorname{proj}_{B_\alpha}$ projects the dual variable pointwise onto an $\ell_2$-ball of radius $\alpha$.
+        \item<3-> \textbf{Convergence condition:} $\tau \left( \frac{\|A\|^2}{2} + \sigma \|\nabla\|^2 \right) \leq 1$.
     \end{itemize}
 \end{frame}
 
@@ -196,12 +196,11 @@
     \textbf{GitHub Classroom Sign-up:}
     \begin{itemize}
         \item Join the assignment via this link: \url{https://classroom.github.com/a/dy4H1JHT}
-        \item Sign up in groups of \textbf{ideally 3} (or 2 if necessary). Note that a maximum of 7 teams is allowed in total.
+        \item Sign up in groups of \textbf{ideally 3} (or 4 if necessary). Note that a maximum of 7 teams is allowed in total.
         \item Come up with a \textbf{unique team name} that clearly identifies your group.
         \item The first team member to sign up creates the team and sets the name; the remaining members simply join that established team.
     \end{itemize}
     
-    \vspace{1em}
     \textbf{Tracking Progress:}
     \begin{itemize}
         \item There will be a live leaderboard to keep track of everyone's progress on the hidden test set.
@@ -319,7 +318,7 @@
 
 \begin{frame}[allowframebreaks]{References}
     \bibliographystyle{plainnat}
-    \bibliography{../Lecture_Notes/references}
+    \bibliography{references}
 \end{frame}
 
 \end{document}
