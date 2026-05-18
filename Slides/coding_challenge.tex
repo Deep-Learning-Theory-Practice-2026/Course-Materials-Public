@@ -70,6 +70,8 @@
 \DeclareMathOperator{\proj}{proj}
 \DeclareMathOperator{\divg}{div}
 
+\bibliographystyle{plainnat}
+
 \title{Deblurring Challenge}
 \subtitle{Restoring Images from Randomised Motion Blur}
 \author[Martin Benning (University College London)]{Martin Benning}
@@ -154,7 +156,7 @@
     \textbf{Why TV?} It heavily penalises noise and oscillations, but \emph{preserves sharp edges} (unlike $\ell_2$ smoothness priors which blur edges).
 \end{frame}
 
-\begin{frame}{Solving the Baseline: The Condat-Vu Algorithm}
+\begin{frame}{Solving the Baseline: The Condat-V\~{u} Algorithm}
     The objective function is
     \begin{align*}
         \min_x \underbrace{\frac{1}{2} \| Ax - y^\delta \|^2}_{\text{Smooth (Gradient desc.)}} + \underbrace{\alpha TV(x)}_{\text{Non-smooth (Proximal operator)}}
@@ -162,14 +164,14 @@
     Because $TV(x)$ involves a linear operator ($\nabla$) inside a non-smooth norm, standard gradient descent fails.
     
     \vspace{0.5em}
-    Instead, we use \textbf{Primal-Dual Splitting} (PDHG/Chambolle--Pock), specifically the \textbf{Condat-V\~u extension} \citep{Pock2009PDHG, Chambolle2011PDHG, condat2013primal, vu2013splitting}. It splits the problem into:
+    Instead, we use \textbf{Primal-Dual Splitting} (PDHG/Chambolle--Pock), specifically the \textbf{Condat-V\~{u} extension} \citep{Pock2009PDHG, Chambolle2011PDHG, condat2013primal, vu2013splitting}. It splits the problem into:
     \begin{enumerate}
         \item A primal gradient step on the data fidelity.
         \item A dual proximal step on the regularisation.
     \end{enumerate}
 \end{frame}
 
-\begin{frame}{Condat-Vu Iterations for Deblurring}
+\begin{frame}{Condat-V\~{u} Iterations for Deblurring}
     \only<1-2>{Let $p$ be a dual variable (a vector field corresponding to the image gradients). We alternate updates with step sizes $\tau$ (primal) and $\sigma$ (dual):}
     
     \begin{theoremblock}{Algorithm Steps}
@@ -211,18 +213,19 @@
 \begin{frame}[fragile]{Repository Structure}
     \begin{columns}
         \column{0.45\textwidth}
-        \begin{lstlisting}[basicstyle=\tiny\ttfamily, language=bash]
+        \begin{lstlisting}[basicstyle=\tiny\ttfamily, language=bash, breaklines=true]
 .
 |-- .github
 |   |-- scripts
-|   |   |-- grade.py 
+|   |   |-- evaluate.py
 |   |   `-- unpack_pt.py
 |   `-- workflows
-|       `-- grading.yml
-|-- data/
-|-- model_weights/
-|   `-- model_weights.pth
+|       `-- evaluation.yml
+|-- data
+|   `-- .gitkeep
+|-- .gitignore
 |-- environment.yml
+|-- LICENSE
 |-- model.py
 |-- predict.py
 |-- requirements.txt
@@ -230,12 +233,12 @@
         \end{lstlisting}
         
         \column{0.55\textwidth}
-        \textbf{What you need to edit:}
+        \textbf{What you need to edit/provide:}
         \begin{itemize}
-            \item \texttt{model.py}: Define your PyTorch network architecture here.
-            \item \texttt{predict.py}: Implement the inference logic (loading the image, applying the model, saving the output).
-            \item \texttt{requirements.txt}: Add any extra Python libraries required for inference.
-            \item \texttt{model\_weights.pth}: Upload your trained model weights.
+            \item \texttt{model.py}: Define your PyTorch network architecture.
+            \item \texttt{predict.py}: Implement the inference logic.
+            \item \texttt{requirements.txt}: Add any extra Python libraries.
+            \item \texttt{*.pth} file: Upload your trained model weights via a GitHub Release.
         \end{itemize}
     \end{columns}
 \end{frame}
@@ -243,7 +246,7 @@
 \begin{frame}{Constraints \& Requirements}
     \begin{alertblock}{Strict Rules for the Auto-Grader}
         \begin{itemize}
-            \item \textbf{Model Size:} The \texttt{model\_weights/} directory must be $\le$ \textbf{100 MB}.
+            \item \textbf{Model Size:} Your submitted \texttt{.pth} weight file must be $\le$ \textbf{100 MB}.
             \item \textbf{Compute Limits:} Inference is evaluated on CPU only. Your pipeline must process the entire hidden test set in under \textbf{20 minutes}.
             \item \textbf{Dynamic Sizing:} Avoid hardcoding dimensions! Your network must handle variable input image sizes.
         \end{itemize}
@@ -260,27 +263,26 @@
 \begin{frame}{Testing and Submission Workflow}
     \begin{center}
     \begin{tikzpicture}[
-        box/.style={draw, thick, fill=uclblue!20, minimum width=2.5cm, minimum height=1cm, align=center, rounded corners},
+        box/.style={draw, thick, fill=uclblue!20, minimum width=3cm, minimum height=1cm, align=center, rounded corners},
         arr/.style={->, thick, >=latex}
     ]
         \node[box] (train) at (0,0) {1. Train Locally};
-        \node[box] (test) at (4,0) {2. Test \texttt{predict.py}};
-        \node[box] (push) at (8,0) {3. Push to \texttt{main}};
-        \node[box, fill=darkgreen!20, minimum height=1.5cm] (grade) at (8,-2.5) {4. GitHub Action\\Evaluates \& Scores};
+        \node[box] (test) at (5,0) {2. Test \texttt{predict.py}};
+        \node[box] (push) at (10,0) {3. Push Code \&\\Create Release};
+        \node[box, fill=darkgreen!20, minimum height=1.5cm] (grade) at (10,-2.5) {4. GitHub Action\\Evaluates \& Scores};
         
         \draw[arr] (train) -- (test);
         \draw[arr] (test) -- (push);
         \draw[arr] (push) -- (grade);
     \end{tikzpicture}
     \end{center}
-    
     \vspace{0.5em}
     \textbf{Local Testing:}
     We provided \texttt{data/test\_dataset.pt}. Test your setup via:
     \texttt{python predict.py --input data/test\_dataset.pt --output sub\_out}
 
     \vspace{0.5em}
-    \textbf{Git Etiquette:} The grading pipeline runs automatically on pushes to \texttt{main}. Please avoid pushing every single typo. Only push when you have a significant update or a new model version to test on the leaderboard.
+    \textbf{Submission:} Publishing a new GitHub Release triggers the evaluation. The latest code on \texttt{main} is also evaluated on a schedule before each leaderboard update.
 \end{frame}
 
 \begin{frame}{Friday Presentations}
@@ -306,8 +308,8 @@
 \begin{frame}{Summary}
     \begin{itemize}
         \item \textbf{The Task:} Deblur images using Deep Learning.
-        \item \textbf{The Baseline:} Total Variation regularisation solved via Condat-Vu primal-dual splitting.
-        \item \textbf{The Goal:} Beat the baseline using PyTorch and \texttt{deepinv}, while respecting the 10 MB and CPU runtime constraints.
+        \item \textbf{The Baseline:} Total Variation regularisation solved via Condat-V\~{u} primal-dual splitting.
+        \item \textbf{The Goal:} Beat the baseline using PyTorch and \texttt{deepinv}, while respecting the 100 MB and CPU runtime constraints.
     \end{itemize}
     
     \vspace{1.5em}
@@ -317,7 +319,6 @@
 \end{frame}
 
 \begin{frame}[allowframebreaks]{References}
-    \bibliographystyle{plainnat}
     \bibliography{references}
 \end{frame}
 
