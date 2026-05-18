@@ -5,39 +5,24 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'Slides/**'
+      - 'Common_Images/**'
+      - '.github/workflows/build-latex.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'Slides/**'
+      - 'Common_Images/**'
+      - '.github/workflows/build-latex.yml'
 
 jobs:
-  check-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      slides-changed: ${{ steps.check.outputs.slides }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check what changed
-        id: check
-        run: |
-          if git diff --name-only HEAD~1 HEAD | grep -qE '(Slides/|Common_Images/)'; then
-            echo "slides=true" >> $GITHUB_OUTPUT
-          else
-            echo "slides=false" >> $GITHUB_OUTPUT
-          fi
-        continue-on-error: true
-
   build-slides:
-    needs: check-changes
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'pull_request' ||
-      needs.check-changes.outputs.slides-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
 
@@ -45,13 +30,20 @@ jobs:
         id: slide-list
         working-directory: Slides
         run: |
-          # List all root .tex files available in the Slides folder
-          files=$(ls *.tex)
-          echo "ROOT_FILES<<EOF" >> $GITHUB_ENV
-          printf '%s\n' "$files" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          files=$(find . -maxdepth 1 -type f -name '*.tex' -printf '%f\n' | sort)
 
-      - name: Compile Slides
+          if [ -z "$files" ]; then
+            echo "No TeX files found in Slides/."
+            exit 1
+          fi
+
+          {
+            echo "ROOT_FILES<<EOF"
+            printf '%s\n' "$files"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Compile slides
         uses: xu-cheng/latex-action@v3
         with:
           root_file: ${{ env.ROOT_FILES }}
@@ -67,9 +59,9 @@ jobs:
             fi
           done
 
-      - name: Upload Slides to Release
+      - name: Upload slides to release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: CCMI_2026_*.pdf
           tag_name: latest
@@ -78,7 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
