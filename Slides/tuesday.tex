@@ -356,8 +356,8 @@
     \end{align*}
     where
     \begin{itemize}
-        \item $\mathcal{D}_{y^\delta}$ is the \textbf{Data Fidelity} term, ensuring the solution matches the measurements.
-        \item $\mathcal{J}$ is the \textbf{Regularisation} term, enforcing prior knowledge about $x^\dagger$.
+        \item $\mathcal{D}_{y^\delta}$ is the \textbf{Data Fidelity} term, ensuring the solution matches the measurements.\pause
+        \item $\mathcal{J}$ is the \textbf{Regularisation} term, enforcing prior knowledge about $x^\dagger$.\pause
         \item $\alpha > 0$ is a hyper-parameter balancing the two.
     \end{itemize}
 \end{frame}
@@ -365,17 +365,17 @@
 \begin{frame}{Examples of Variational Terms}
     \textbf{Data Fidelity $\mathcal{D}_{y^\delta}(Ax)$:}
     \begin{itemize}
-        \item $\frac{1}{2}\|Ax - y^\delta\|_2^2$: Standard Gau\ss ian noise assumption.
-        \item $\|Ax - y^\delta\|_1$: Robust to Laplacian-distributed, heavy-tailed or outlier noise.
-        \item Kullback--Leibler Divergence $\sum_{i} \left( y_i^\delta \log\left(\frac{y_i^\delta}{(Ax)_i}\right) + (Ax)_i - y_i^\delta \right)$: Used for Poisson noise (e.g., photon counting in PET).
+        \item<1-> $\frac{1}{2}\|Ax - y^\delta\|_2^2$: Standard Gau\ss ian noise assumption.
+        \item<2-> $\|Ax - y^\delta\|_1$: Robust to Laplacian-distributed, heavy-tailed or outlier noise.
+        \item<3-> Kullback--Leibler Divergence $\sum_{i} \left( y_i^\delta \log\left(\frac{y_i^\delta}{(Ax)_i}\right) + (Ax)_i - y_i^\delta \right)$: Used for Poisson noise (e.g., photon counting in PET).
     \end{itemize}
     
     \vspace{0.5em}
     \textbf{Regularisation $\mathcal{J}(x)$:}
     \begin{itemize}
-        \item $\frac{1}{2}\|x\|_2^2$: Tikhonov regularisation (promotes small energy).
-        \item $\|x\|_1$: Promotes sparsity (many pixels/coefficients are exactly zero).
-        \item $\sup_{\| p \|_\infty \leq 1} \langle x, \operatorname{div} p \rangle \approx \|\nabla x\|_1$: Total Variation (TV) (promotes piecewise constant images, preserving sharp edges).
+        \item<4-> $\frac{1}{2}\|x\|_2^2$: Tikhonov regularisation \citep{tikhonov1963solution} (promotes small energy).
+        \item<5-> $\|x\|_1$: Promotes sparsity (many pixels/coefficients are exactly zero).
+        \item<6-> $\sup_{\| p \|_\infty \leq 1} \langle x, \operatorname{div} p \rangle \approx \|\nabla x\|_1$: Total Variation (TV) \citep{rudin1992nonlinear} (promotes piecewise constant images, preserving sharp edges).
     \end{itemize}
 \end{frame}
 
@@ -386,11 +386,11 @@
         \begin{align*}
             E(\lambda x + (1 - \lambda)y) \leq \lambda E(x) + (1 - \lambda) E(y) \, .
         \end{align*}
-    \end{block}
+    \end{block}\pause
     
     \begin{theoremblock}{Global Optimality}
         If $E$ is a proper, convex, and lower semi-continuous function, any local minimum is a global minimum. Furthermore, the set of global minimisers is convex.
-    \end{theoremblock}
+    \end{theoremblock}\pause
     
     \textbf{Example:} The data fidelity $\mathcal{D}_{y^\delta}(Ax) = \frac{1}{2}\|Ax - y^\delta\|_2^2$ is convex. If $\mathcal{J}(x) = \|x\|_1$ is also convex, their sum $E(x) = \mathcal{D}_{y^\delta}(Ax) + \alpha \mathcal{J}(x)$ is convex.
 \end{frame}
@@ -447,7 +447,7 @@
 \end{frame}
 
 \begin{frame}{The Proximal Operator}
-    \only<1>{To efficiently handle non-smooth convex regularisation functions, we define the \textbf{Proximal Operator}.}
+    \only<1>{To efficiently handle non-smooth convex regularisation functions, we define the \textbf{Proximal Operator} \citep{moreau1965proximite}.}
     
     \begin{block}{Definition}
         For a proper, convex, lower semi-continuous function $f$ and a scalar $\tau > 0$, the proximal operator is defined via
@@ -471,13 +471,13 @@
     To find $x^* = \prox_{\tau \alpha \|\cdot\|_1}(v)$, we use the optimality condition (for each element)
     \begin{align*}
         v \in x^* + \tau \alpha \partial |x^*| \, .
-    \end{align*}
+    \end{align*}\pause
     Checking the cases for the subdifferential of the absolute value yields
     \begin{itemize}
         \item If $x^* > 0$, $\partial |x^*| = \{1\} \implies v = x^* + \tau \alpha \implies x^* = v - \tau \alpha$.
         \item If $x^* < 0$, $\partial |x^*| = \{-1\} \implies v = x^* - \tau \alpha \implies x^* = v + \tau \alpha$.
         \item If $x^* = 0$, $\partial |x^*| = [-1, 1] \implies v \in [-\tau \alpha, \tau \alpha]$.
-    \end{itemize}
+    \end{itemize}\pause
     Combining these cases, we obtain the \textbf{Soft-Thresholding} operator yielding
     \begin{align*}
         \operatorname{soft-thresh}_{\tau\alpha}(v) = \operatorname{sign}(v) \max(|v| - \tau\alpha, 0) \, .
@@ -627,10 +627,10 @@
 %================================================================%
 
 \begin{frame}{The hyperparameter problem}
-    In standard machine learning, we minimise an empirical risk on a training set to find model parameters. However, this process is governed by \textbf{hyperparameters} $\Theta$ (e.g., regularisation weights), which control the model's capacity and generalisation.
+    In standard machine learning, we minimise an empirical risk on a training set to find model parameters. However, this process is governed by \textbf{hyperparameters} $\Theta$ (e.g., regularisation weights), which control the model's capacity and generalisation.\pause
     
     \vspace{0.5em}
-    Typically, we select $\Theta$ by evaluating the trained model on a separate \textbf{validation set}. As the dimensionality of $\Theta$ grows, manual tuning or grid search becomes intractable.
+    Typically, we select $\Theta$ by evaluating the trained model on a separate \textbf{validation set}. As the dimensionality of $\Theta$ grows, manual tuning or grid search becomes intractable.\pause
     
     \vspace{0.5em}
     Similarly, classical variational methods for inverse problems are mathematically robust but rely on manual tuning of regularisation parameters (like the weight $\alpha$). If $\alpha$ is too small, the image remains noisy; if too large, it loses critical features.
@@ -668,7 +668,7 @@
 \end{frame}
 
 \begin{frame}{Bilevel learning for inverse problems}
-    Applying this to inverse problems, suppose we have a dataset of ground-truth images $x_i^\dagger$ and noisy measurements $y_i^\delta$. We can \emph{learn} the optimal parameters $\Theta$ of our regulariser yielding
+    Applying this to inverse problems \citep{kunisch2013bilevel, holler2018bilevel}, suppose we have a dataset of ground-truth images $x_i^\dagger$ and noisy measurements $y_i^\delta$. We can \emph{learn} the optimal parameters $\Theta$ of our regulariser yielding
     \begin{align*}
         \min_{\Theta} \frac{1}{N} \sum_{i=1}^N \mathcal{L}\left( x_i^\star(\Theta), \, x_i^\dagger \right) \quad \text{subject to} \quad x_i^\star(\Theta) \in \argmin_x E(x, \Theta; y_i^\delta) \, ,
     \end{align*}
@@ -725,21 +725,21 @@
     \begin{align*}
         \nabla_{xx}^2 E(x^\star, \Theta) \frac{\partial x^\star}{\partial \Theta} + \nabla_{\Theta x}^2 E(x^\star, \Theta) = 0 \, ,
     \end{align*}
-    where $\nabla_{xx}^2 E$ is the Hessian matrix with respect to $x$, and $\nabla_{\Theta x}^2 E$ is the mixed partial derivative.
+    where $\nabla_{xx}^2 E$ is the Hessian matrix with respect to $x$, and $\nabla_{\Theta x}^2 E$ is the mixed partial derivative.\pause
     
     \vspace{0.5em}
     Rearranging gives the exact sensitivity yielding
     \begin{align*}
         \frac{\partial x^\star}{\partial \Theta} = - \left( \nabla_{xx}^2 E(x^\star, \Theta) \right)^{-1} \nabla_{\Theta x}^2 E(x^\star, \Theta) \, .
     \end{align*}
-    This is a massive breakthrough! We can analytically compute gradients for hyperparameter learning by solving a single linear system at the end, regardless of how many iterations it took to find $x^\star$.
+    Hence, we can analytically compute gradients for hyperparameter learning by solving a single linear system at the end, regardless of how many iterations it took to find $x^\star$.
 \end{frame}
 
 \begin{frame}{The adjoint system}
     In practice, we never invert the huge Hessian matrix. We define the \textbf{adjoint state} $p$ as the solution to the linear system satisfying
     \begin{align*}
         \left( \nabla_{xx}^2 E(x^\star, \Theta) \right) p = \nabla_{x^\star} \mathcal{L} \, .
-    \end{align*}
+    \end{align*}\pause
     
     Since the Hessian is symmetric, we can substitute this into our gradient expression to obtain
     \begin{align*}
@@ -878,7 +878,7 @@
 \end{frame}
 
 \begin{frame}{The Unrolling Principle}
-    This leads to one of the most powerful concepts in modern computational imaging: \textbf{Algorithm Unrolling} (or Unfolding).
+    This leads to one of the most powerful concepts in modern computational imaging: \textbf{Algorithm Unrolling} (or Unfolding) \citep{monga2021algorithm}.
     
     \begin{theoremblock}{The Unrolling Principle}
         Truncate an iterative algorithm to a finite number of steps $K$. Treat each iteration as a layer in a Deep Neural Network. Relax the parameters of the algorithm to be iteration-dependent, and learn them end-to-end from data using backpropagation.
