@@ -105,27 +105,27 @@
 %================================================================%
 
 \begin{frame}{The End-to-End Problem (Recap)}
-    On Tuesday, we derived highly powerful unrolled architectures like the Learned Primal-Dual (LPD) network. While these models represent the state-of-the-art for specific tasks, they suffer from a fundamental flaw: \textbf{Rigidity}.
+    On Tuesday, we derived highly powerful unrolled architectures like the Learned Primal-Dual (LPD) network. While these models represent the state-of-the-art for specific tasks, they suffer from a fundamental flaw: \textbf{Rigidity}.\pause
     
     \vspace{0.5em}
-    By unrolling the iterations, the network incorporates the forward operator $A$ directly into its computational graph during training.
+    By unrolling the iterations, the network incorporates the forward operator $A$ directly into its computational graph during training.\pause
     
     \begin{alertblock}{The Retraining Bottleneck}
-        If the physics change even slightly---for instance, altering the resolution, varying the sampling mask in MRI, or switching to a different sensor geometry---the unrolled network must be entirely retrained.
+        If the physics change even slightly -- for instance, altering the resolution, varying the sampling mask in MRI, or switching to a different sensor geometry -- the unrolled network must be entirely retrained.
     \end{alertblock}
     
     \vspace{0.5em}
-    Can we decouple the neural network from the physical operator $A$, creating a truly \emph{modular} system?
+    Can we decouple the neural network from the physical operator $A$, creating a \emph{modular} system?
 \end{frame}
 
 \begin{frame}{Variable Splitting as a DL Framework}
-    To achieve true modularity, we revisit classical variable splitting algorithms. We previously discussed ADMM and PDHG, but today we introduce a simpler method known as \textbf{Half-Quadratic Splitting (HQS)}.
+    To achieve modularity, we revisit classical variable splitting algorithms. We previously discussed PDHG, but today we introduce a simpler method known as \textbf{Half-Quadratic Splitting (HQS)}.
     
-    Consider solving our standard variational problem via HQS:
+    Consider solving our standard variational problem via HQS, i.e.
     \begin{align*}
         \min_{x, v} \left\{ \frac{1}{2}\|Ax - y^\delta\|_2^2 + \alpha \mathcal{J}(v) + \frac{\mu}{2} \|x - v\|_2^2 \right\} \, .
-    \end{align*}
-    Here, we introduce an auxiliary variable $v$ and penalise its distance to the image $x$ with a parameter $\mu > 0$. As $\mu \to \infty$, $x$ converges to $v$, solving the original problem.
+    \end{align*}\pause
+    Here, we introduce an auxiliary variable $v$ and penalise its distance to the image $x$ with a parameter $\mu > 0$. As $\mu \to \infty$, $x$ converges to $v$, we solve the original problem.
 \end{frame}
 
 \begin{frame}{Alternating Minimisation in HQS}
@@ -198,13 +198,31 @@
 \end{frame}
 
 \begin{frame}{From HQS to ADMM}
-    While HQS is incredibly simple, the Alternating Direction Method of Multipliers (ADMM) handles constraints properly and avoids the pitfalls of penalty methods (where $\mu \to \infty$ is needed to strictly enforce $x=v$).
+    While HQS is incredibly simple, the Alternating Direction Method of Multipliers (ADMM) handles constraints properly and avoids the pitfalls of penalty methods (where $\mu \to \infty$ is needed to strictly enforce $x=v$).\pause
     
     \vspace{0.5em}
-    Recall the Augmented Lagrangian for ADMM, where we substitute the original Lagrange multiplier directly with a scaled dual variable $w$ yielding
+    The Augmented Lagrangian for ADMM, where we substitute the original Lagrange multiplier directly with a scaled dual variable $w$, reads
     \begin{align*}
         \mathcal{L}_\mu(x, v; w) = \frac{1}{2} \| Ax - y^\delta \|_2^2 + \alpha \mathcal{J}(v) + \mu \langle w, x - v \rangle + \frac{\mu}{2} \| x - v \|_2^2 \, .
     \end{align*}
+\end{frame}
+
+\begin{frame}{Conventional ADMM Algorithm}
+    The classical ADMM alternatingly updates the variables of this augmented Lagrangian:
+    \vspace{-0.15cm}
+    
+    \begin{algorithm}[H]
+    \caption{Conventional ADMM}\label{alg:admm}
+    \begin{algorithmic}[1]
+    \State \textbf{Input:} Data $y^\delta$, Operator $A$, Regulariser $\mathcal{J}$, Parameters $\mu, \alpha$
+    \State \textbf{Initialise:} $x^0 = A^\top y^\delta$, $v^0 = y^\delta$, $w^0 = 0$
+    \For{$k = 0, 1, \dots$}
+        \State \textbf{1. Data Consistency:} $x^{k+1} = (A^\top A + \mu I)^{-1} \left( A^\top y^\delta + \mu (v^k - w^k) \right)$
+        \State \textbf{2. Proximal Prior:} $v^{k+1} = \operatorname{prox}_{\frac{\alpha}{\mu}\mathcal{J}}(x^{k+1} + w^k)$
+        \State \textbf{3. Dual Update:} $w^{k+1} = w^k + (x^{k+1} - v^{k+1})$
+    \EndFor
+    \end{algorithmic}
+    \end{algorithm}
 \end{frame}
 
 \begin{frame}{PnP-ADMM Algorithm}
@@ -218,7 +236,7 @@
     \State \textbf{Initialise:} $x^0 = A^\top y^\delta$, $v^0 = y^\delta$, $w^0 = 0$
     \For{$k = 0, 1, \dots$}
         \State \textbf{1. Data Consistency:} $x^{k+1} = (A^\top A + \mu I)^{-1} \left( A^\top y^\delta + \mu (v^k - w^k) \right)$
-        \State \textbf{2. Neural Denoising:} $v^{k+1} = D_{\sigma}(x^{k+1} + w^k)$
+        \State \textcolor{red}{\textbf{2. Neural Denoising (PnP change):} $v^{k+1} = D_{\sigma}(x^{k+1} + w^k)$}
         \State \textbf{3. Dual Update:} $w^{k+1} = w^k + (x^{k+1} - v^{k+1})$
     \EndFor
     \end{algorithmic}
@@ -232,7 +250,7 @@
     A crucial aspect of PnP is the relationship between the regularisation parameter $\alpha$ and the internal noise level of the denoiser $\sigma$.
     
     \vspace{0.5em}
-    In theory, for the MAP interpretation to hold, we require $\sigma_k = \sqrt{\alpha/\mu}$.
+    In theory, for the MAP interpretation to hold, we require $\sigma_k = \sqrt{\alpha/\mu}$.\pause
     
     \begin{block}{The Continuation Method}
         In practice, when using deep denoisers (like DRUNet), it is highly beneficial to \textbf{decrease $\sigma_k$} dynamically over iterations. Starting with a large $\sigma$ removes heavy artifacts and poor initialisations, while a small $\sigma$ in later iterations refines fine details without washing away contrast.
