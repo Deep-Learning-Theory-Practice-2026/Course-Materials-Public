@@ -331,6 +331,3 @@ cspell.json
 
 # # Exception: Keep monday.tex tracked
 # !Slides/monday.tex
-
-# Ignore future lecture slides temporarily
-Slides/thursday.tex
