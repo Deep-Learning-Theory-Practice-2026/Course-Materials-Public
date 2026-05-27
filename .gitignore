@@ -16,6 +16,9 @@
 # Exception: Allow banner PDFs in Template folder to be tracked
 !Slides/Template/banners/*.pdf
 
+# Exception: Allow guest lecture PDF to be tracked
+!Guest Lecture/2026-05-21_Latz_SGD_UCL 1.pdf
+
 # System files
 .DS_Store
 Thumbs.db
